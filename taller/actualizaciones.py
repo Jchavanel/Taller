@@ -33,7 +33,7 @@ from .errores import log
 from .paths import _project_root
 
 # --- CONFIGURA AQUÍ tu repositorio de GitHub (usuario/repositorio) --------------
-REPO = os.environ.get("TALLER_UPDATE_REPO", "TU_USUARIO/taller-coches")
+REPO = os.environ.get("TALLER_UPDATE_REPO", "Jchavanel/Taller")
 # ------------------------------------------------------------------------------
 
 URL_MANIFIESTO = os.environ.get(
@@ -46,7 +46,11 @@ _ANTES_DE_REINICIAR = None  # callback opcional, se fija en aplicar()
 
 # Si nadie ha configurado el repositorio, el sistema de actualización se desactiva
 # silenciosamente (no hay adónde llamar).
-SIN_CONFIGURAR = REPO.startswith("TU_USUARIO") and "TALLER_UPDATE_URL" not in os.environ
+SIN_CONFIGURAR = (
+    REPO.startswith("TU_USUARIO")
+    and "TALLER_UPDATE_URL" not in os.environ
+    and "TALLER_UPDATE_REPO" not in os.environ
+)
 
 
 class ErrorActualizacion(RuntimeError):

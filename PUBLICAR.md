@@ -5,11 +5,11 @@ sacar una versión nueva:
 
 ## 1. Preparar el repositorio (solo la primera vez)
 
-1. Crea un repositorio **público** en GitHub, p. ej. `TU_USUARIO/taller-coches`.
+1. Crea un repositorio **público** en GitHub, p. ej. `Jchavanel/Taller`.
 2. Edita la constante `REPO` en [`taller/actualizaciones.py`](taller/actualizaciones.py):
 
    ```python
-   REPO = os.environ.get("TALLER_UPDATE_REPO", "TU_USUARIO/taller-coches")
+   REPO = os.environ.get("TALLER_UPDATE_REPO", "Jchavanel/Taller")
    ```
 
 3. Sube el código:
@@ -19,7 +19,7 @@ sacar una versión nueva:
    git add .
    git commit -m "Versión inicial"
    git branch -M main
-   git remote add origin https://github.com/TU_USUARIO/taller-coches.git
+   git remote add origin https://github.com/Jchavanel/Taller.git
    git push -u origin main
    ```
 
@@ -65,7 +65,7 @@ se sube**. Guárdalo aparte; el PC del taller ya lo tiene aplicado en su base de
 bash make_dist.sh
 bash build_appimage.sh                     # en un equipo Linux
 python scripts/generar_latest_json.py \
-    --version X.Y.Z --repo TU_USUARIO/taller-coches \
+    --version X.Y.Z --repo Jchavanel/Taller \
     --appimage dist/Taller-de-Coches-x86_64.AppImage \
     --fuente   dist/taller-coches-X.Y.Z.tar.gz \
     --notas    "Novedades..." \
@@ -77,7 +77,7 @@ Luego crea la release `vX.Y.Z` en GitHub y sube esos tres ficheros
 
 ## Cómo lo comprueba la aplicación
 
-- Descarga `https://github.com/TU_USUARIO/taller-coches/releases/latest/download/latest.json`
+- Descarga `https://github.com/Jchavanel/Taller/releases/latest/download/latest.json`
   (URL fija que siempre apunta a la última release).
 - Compara `version` con la instalada; si es mayor, ofrece actualizar.
 - Descarga el paquete que corresponda (`appimage` o `fuente`), verifica el `sha256` y lo
