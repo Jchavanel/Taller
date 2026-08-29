@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taller-coches"
+version = "1.11.0"
+description = "Gestión local de presupuestos, órdenes de trabajo, albaranes y facturas para talleres de automoción"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6",
+    "reportlab>=4.0",
+]
+
+[project.gui-scripts]
+taller-coches = "taller.ui.main_window:run"
+
+[tool.setuptools]
+packages = ["taller", "taller.ui"]
+
+[tool.setuptools.package-data]
+taller = ["resources/*"]

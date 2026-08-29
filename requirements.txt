@@ -1,0 +1,7 @@
+PySide6>=6.6,<7
+reportlab>=4.0,<6
+
+# Opcional. Guarda la contraseña del correo en el llavero del sistema operativo en
+# lugar de en la base de datos (ofuscada). Si no se instala, la app funciona igual.
+# En Linux necesita GNOME Keyring / KWallet (paquete `gnome-keyring` o `kwalletmanager`).
+keyring>=24.0

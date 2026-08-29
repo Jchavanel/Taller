@@ -1,0 +1,6 @@
+# Normaliza saltos de línea. Los scripts y ficheros que se ejecutan en Linux
+# DEBEN conservar saltos LF aunque se editen en Windows.
+* text=auto eol=lf
+*.png binary
+*.pdf binary
+*.ico binary

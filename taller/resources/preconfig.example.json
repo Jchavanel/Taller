@@ -1,0 +1,18 @@
+{
+  "_comentario": "Plantilla de configuración inicial. Copia este fichero como 'preconfig.json' (en esta misma carpeta) y rellena los datos de tu taller. La aplicación lo ofrecerá al primer arranque con la base de datos vacía. 'preconfig.json' NO se sube al repositorio (lleva datos fiscales).",
+  "logo": "logo.png",
+  "empresa": {
+    "nombre": "Mi Taller, S.L.",
+    "nif": "B00000000",
+    "direccion": "Calle de Ejemplo, 1",
+    "cp": "00000",
+    "poblacion": "Población",
+    "provincia": "Provincia",
+    "telefono": "000 000 000",
+    "email": "",
+    "iban": "ES0000000000000000000000",
+    "iva_defecto": 7.0,
+    "impuesto_nombre": "IGIC",
+    "anticipo_pct": 50.0
+  }
+}

@@ -1,0 +1,70 @@
+name: Publicar release
+
+# Se dispara al enviar una etiqueta v* (p. ej. v1.11.0):
+#     git tag -a v1.11.0 -m "Notas de la versión..."
+#     git push origin v1.11.0
+#
+# Construye el AppImage y el paquete de código, genera latest.json y publica todo
+# como una release de GitHub. La aplicación instalada lo detecta y se actualiza sola.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 libxcb-cursor0 libxcb-xinerama0 \
+            libxkbcommon-x11-0 libegl1 libcups2
+
+      - name: Comprobar que la etiqueta coincide con la versión del código
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          COD=$(python -c "import taller; print(taller.__version__)")
+          echo "Etiqueta: $TAG   Código: $COD"
+          test "$TAG" = "$COD" || { echo "::error::La etiqueta v$TAG no coincide con taller.__version__ ($COD)"; exit 1; }
+
+      - name: Notas de la versión (mensaje de la etiqueta)
+        run: |
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > NOTAS.txt
+          cat NOTAS.txt
+
+      - name: Paquete de código
+        run: bash make_dist.sh
+
+      - name: AppImage
+        run: bash build_appimage.sh
+
+      - name: Generar latest.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python scripts/generar_latest_json.py \
+            --version "$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --appimage dist/Taller-de-Coches-x86_64.AppImage \
+            --fuente "dist/taller-coches-${VERSION}.tar.gz" \
+            --notas-file NOTAS.txt \
+            --salida dist/latest.json
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: NOTAS.txt
+          files: |
+            dist/Taller-de-Coches-x86_64.AppImage
+            dist/taller-coches-*.tar.gz
+            dist/latest.json

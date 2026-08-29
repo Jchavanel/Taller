@@ -1,0 +1,25 @@
+.venv/
+venv/
+# venv creado por error en la raíz del proyecto
+/Include/
+/Lib/
+/Scripts/
+/pyvenv.cfg
+__pycache__/
+*.pyc
+# datos de la aplicación (base de datos y PDF generados)
+/datos/
+*.db
+*.db-wal
+*.db-shm
+build/
+dist/
+*.egg-info/
+.build-venv/
+AppDir/
+appimagetool-*.AppImage
+*.spec
+# datos fiscales concretos de un taller (CIF + IBAN): no van al repositorio público
+/taller/resources/preconfig.json
+# PDFs con el membrete real del taller (modelo del cliente y muestras generadas)
+/modelos/
