@@ -42,6 +42,7 @@ URL_MANIFIESTO = os.environ.get(
 )
 _TIMEOUT = 15
 _UA = {"User-Agent": f"taller-coches/{__version__}"}
+_ANTES_DE_REINICIAR = None  # callback opcional, se fija en aplicar()
 
 # Si nadie ha configurado el repositorio, el sistema de actualización se desactiva
 # silenciosamente (no hay adónde llamar).
@@ -183,9 +184,6 @@ def aplicar(paquete: Path, antes_de_reiniciar=None) -> None:
         _aplicar_appimage(paquete)
     else:
         _aplicar_fuente(paquete)
-
-
-_ANTES_DE_REINICIAR = None
 
 
 def _relanzar_argv(modo: str) -> tuple[str, list[str]]:
