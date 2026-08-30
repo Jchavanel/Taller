@@ -238,7 +238,7 @@ class _TablaBase(QWidget):
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.verticalHeader().setVisible(False)
         self.tabla.setWordWrap(False)
-        self.tabla.doubleClicked.connect(lambda: self.editar())
+        self.tabla.doubleClicked.connect(lambda: self._doble_clic())
         _config_columnas(self.tabla, self.columnas, self.columnas_expandibles)
         root.addWidget(self.tabla)
 
@@ -265,6 +265,10 @@ class _TablaBase(QWidget):
             if col == 0:
                 item.setData(Qt.ItemDataRole.UserRole, obj_id)
             self.tabla.setItem(fila, col, item)
+
+    def _doble_clic(self) -> None:
+        """Acción al hacer doble clic en una fila (por defecto, editar)."""
+        self.editar()
 
     # métodos a implementar
     def refrescar(self) -> None: ...
@@ -575,12 +579,19 @@ class VehiculosTab(_TablaBase):
         b_nuevo.clicked.connect(self.nuevo)
         b_editar = QPushButton("Editar")
         b_editar.clicked.connect(self.editar)
-        b_hist = QPushButton("Historial")
+        b_hist = QPushButton("Ver historial")
+        b_hist.setProperty("primary", "true")
+        b_hist.setToolTip("Intervenciones y trabajos hechos a este vehículo (doble clic en la fila)")
         b_hist.clicked.connect(self.historial)
         b_borrar = QPushButton("Eliminar")
         b_borrar.clicked.connect(self.eliminar)
         for b in (b_nuevo, b_editar, b_hist, b_borrar):
             barra.addWidget(b)
+
+    def _doble_clic(self) -> None:
+        # Los vehículos se dan de alta desde la ficha del cliente; aquí el doble clic
+        # muestra el historial (qué se le ha hecho al coche).
+        self.historial()
 
     def historial(self) -> None:
         vid = self._id_seleccionado()
