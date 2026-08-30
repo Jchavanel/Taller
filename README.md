@@ -329,9 +329,13 @@ TALLER_DB=/media/usb/taller.db            taller-coches   # solo el fichero de B
 ## Nota fiscal
 
 Esta versión emite facturas en PDF con numeración correlativa y desglose de impuesto,
-pensada para uso interno del taller. **No** implementa VeriFactu ni TicketBAI (firma y
-remisión a la Agencia Tributaria). Si necesitas cumplir el reglamento antifraude cuando
-entre en vigor para tu caso, habrá que añadir ese módulo.
+pensada para uso interno del taller. **No** implementa todavía **VeriFactu** (huella
+encadenada, QR y remisión a la AEAT).
+
+- Canarias entra por **VeriFactu**, no por TicketBAI (que es solo País Vasco / Navarra).
+- Fecha objetivo para tener el módulo listo: **julio de 2027** (confírmala con el asesor;
+  las fechas del reglamento se han ido retrasando).
+- El alcance y el plan por fases están en [`docs/VERIFACTU.md`](docs/VERIFACTU.md).
 
 ## Estructura del proyecto
 
