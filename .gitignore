@@ -1,10 +1,13 @@
 .venv/
 venv/
-# venv creado por error en la raíz del proyecto
-/Include/
-/Lib/
-/Scripts/
+# venv creado por error en la raíz del proyecto (en Windows la carpeta es 'Scripts',
+# que en sistemas sin distinción de mayúsculas chocaría con 'scripts/'; por eso se
+# listan los ficheros concretos y no la carpeta)
 /pyvenv.cfg
+/Scripts/activate
+/Scripts/python.exe
+/Lib/site-packages/
+/Include/site/
 __pycache__/
 *.pyc
 # datos de la aplicación (base de datos y PDF generados)
