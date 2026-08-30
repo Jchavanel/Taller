@@ -162,12 +162,24 @@ cualquier equipo Linux**, un AppImage:
 ./build_appimage.sh            # produce dist/Taller-de-Coches-x86_64.AppImage
 ```
 
-Después, en cada equipo del taller: **copiar ese único fichero**, botón derecho →
-*Propiedades → Permitir ejecutar como programa* (muchos gestores de archivos ya lo
-hacen), y **doble clic**. Sin comandos, sin Python, sin dependencias. Los datos se
-guardan en `~/.local/share/taller-coches/`.
+Después, en cada equipo del taller: **copiar ese único fichero** y **doble clic** (si el
+gestor de archivos no lo permite, botón derecho → *Propiedades → Permitir ejecutar como
+programa*).
 
-> En Ubuntu 24.04+ puede pedir `sudo apt install libfuse2t64` la primera vez.
+**Para que aparezca en el menú de aplicaciones como un programa más** (icono + lanzador),
+ejecuta una vez:
+
+```bash
+./instalar_appimage.sh ~/Descargas/Taller-de-Coches-x86_64.AppImage
+```
+
+Deja el AppImage en `~/.local/bin/`, extrae el icono y crea la entrada de menú «Taller de
+Coches». Para quitarlo: `./instalar_appimage.sh --desinstalar` (no borra los datos).
+
+Los datos se guardan en `~/.local/share/taller-coches/`.
+
+> En Ubuntu 24.04+ puede pedir `sudo apt install libfuse2t64` la primera vez
+> (`libfuse2` en 22.04).
 
 ### Ejecutable independiente (carpeta)
 
