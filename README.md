@@ -104,10 +104,11 @@ ves de un vistazo todo lo que se le ha hecho al coche, con fecha y kilómetros.
   kilómetros); el historial la muestra destacada.
 - Botón **Imprimir historial (PDF)** para entregárselo al cliente o guardarlo.
 
-Se abre desde: ficha del cliente → *Historial del vehículo*; pestaña **Vehículos** →
-**doble clic** en el vehículo (o botón *Ver historial*) — el alta de vehículos se hace
-desde la ficha del cliente, así que aquí el doble clic muestra directamente el historial;
-o dentro del editor de un documento → *Historial*.
+Se abre haciendo **doble clic en el vehículo**, tanto en la ficha del cliente como en la
+pestaña **Vehículos** (o con el botón *Historial del vehículo* / *Ver historial*). El alta
+y la edición de vehículos se hacen con los botones correspondientes; el doble clic va
+directo al historial, que es lo que más se consulta. También desde el editor de un
+documento → *Historial*.
 
 ---
 

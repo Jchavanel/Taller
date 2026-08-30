@@ -356,11 +356,16 @@ class ClientesTab(QWidget):
         self.tabla_veh.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla_veh.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tabla_veh.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.tabla_veh.doubleClicked.connect(self._editar_vehiculo)
+        # Alta y edición de vehículos se hacen con los botones de abajo; el doble clic
+        # abre el historial (qué se le ha hecho al coche), que es lo que se consulta más.
+        self.tabla_veh.doubleClicked.connect(self._historial_vehiculo)
         gl.addWidget(self.tabla_veh)
 
         veh_barra = QHBoxLayout()
         self.b_veh_hist = QPushButton("Historial del vehículo")
+        self.b_veh_hist.setProperty("primary", "true")
+        self.b_veh_hist.setToolTip("Intervenciones y trabajos hechos a este vehículo "
+                                   "(doble clic en la fila)")
         self.b_veh_hist.clicked.connect(self._historial_vehiculo)
         self.b_veh_add = QPushButton("Añadir vehículo")
         self.b_veh_add.clicked.connect(self._añadir_vehiculo)
