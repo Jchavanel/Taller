@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-python@v5
         with:
@@ -38,10 +41,19 @@ jobs:
           echo "Etiqueta: $TAG   Código: $COD"
           test "$TAG" = "$COD" || { echo "::error::La etiqueta v$TAG no coincide con taller.__version__ ($COD)"; exit 1; }
 
-      - name: Notas de la versión (mensaje de la etiqueta)
+      - name: Notas de la versión (mensaje de la etiqueta anotada)
         run: |
-          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > NOTAS.txt
-          cat NOTAS.txt
+          # El mensaje de la etiqueta anotada son las notas de la versión.
+          MSG=$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')
+          if [ -z "$MSG" ]; then
+            MSG=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          fi
+          # quita líneas de trailer (Co-Authored-By, Signed-off-by…) y el título inicial
+          printf '%s\n' "$MSG" \
+            | grep -vE '^(Co-Authored-By|Signed-off-by|Co-authored-by):' \
+            > NOTAS.txt
+          [ -s NOTAS.txt ] || echo "Versión ${GITHUB_REF_NAME}" > NOTAS.txt
+          echo "----- NOTAS.txt -----"; cat NOTAS.txt
 
       - name: Paquete de código
         run: bash make_dist.sh
