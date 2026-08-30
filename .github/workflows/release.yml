@@ -20,9 +20,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - uses: actions/setup-python@v5
         with:
@@ -42,17 +39,26 @@ jobs:
           test "$TAG" = "$COD" || { echo "::error::La etiqueta v$TAG no coincide con taller.__version__ ($COD)"; exit 1; }
 
       - name: Notas de la versión (mensaje de la etiqueta anotada)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
         run: |
-          # El mensaje de la etiqueta anotada son las notas de la versión.
-          MSG=$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')
-          if [ -z "$MSG" ]; then
-            MSG=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          # Se lee por la API para no depender de cómo checkout deja la etiqueta local.
+          api() { curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "X-GitHub-Api-Version: 2022-11-28" "$@"; }
+          REF=$(api "https://api.github.com/repos/$REPO/git/ref/tags/$TAG")
+          SHA=$(printf '%s' "$REF" | jq -r '.object.sha')
+          TYPE=$(printf '%s' "$REF" | jq -r '.object.type')
+          if [ "$TYPE" = "tag" ]; then
+            api "https://api.github.com/repos/$REPO/git/tags/$SHA" | jq -r '.message' > NOTAS.txt
+          else
+            api "https://api.github.com/repos/$REPO/commits/$SHA" | jq -r '.commit.message' > NOTAS.txt
           fi
-          # quita líneas de trailer (Co-Authored-By, Signed-off-by…) y el título inicial
-          printf '%s\n' "$MSG" \
-            | grep -vE '^(Co-Authored-By|Signed-off-by|Co-authored-by):' \
-            > NOTAS.txt
-          [ -s NOTAS.txt ] || echo "Versión ${GITHUB_REF_NAME}" > NOTAS.txt
+          # quita trailers y líneas en blanco sobrantes al final
+          sed -i -E '/^(Co-authored-by|Signed-off-by):/Id' NOTAS.txt
+          sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba}' NOTAS.txt
+          [ -s NOTAS.txt ] || printf 'Versión %s\n' "$TAG" > NOTAS.txt
           echo "----- NOTAS.txt -----"; cat NOTAS.txt
 
       - name: Paquete de código
