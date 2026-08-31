@@ -64,6 +64,17 @@ fichero **no se sube al repositorio** (lleva datos fiscales): parte de
 `taller/resources/preconfig.example.json`, cópialo como `preconfig.json` y rellénalo, o
 simplemente rellena los datos en *Archivo → Datos de mi taller* la primera vez.
 
+## Licencia
+
+El programa lleva un **control de licencia offline** (para su comercialización privada):
+
+- Instalación nueva: **30 días de prueba**.
+- Al caducar la prueba o la licencia → **modo consulta**: se puede ver, imprimir y
+  exportar, pero no crear ni modificar. **Archivo → Licencia…** para activar una licencia.
+- Se distribuye **desactivado** (`CLAVE_PUBLICA_HEX` vacía en
+  [`taller/licencia.py`](taller/licencia.py)); se activa al generar el par de claves.
+- Puesta en marcha y emisión de licencias: [`docs/LICENCIAS.md`](docs/LICENCIAS.md).
+
 ## Actualizaciones automáticas
 
 La aplicación puede actualizarse sola desde **GitHub Releases**, sin llevar nada en un
@@ -348,9 +359,11 @@ taller/
   seed.py            Catálogo de artículos de ejemplo
   paths.py           Rutas de datos (XDG)
   actualizaciones.py Comprobación e instalación de actualizaciones (GitHub Releases)
+  licencia.py        Control de licencia offline (firma Ed25519)
   ui/
     main_window.py   Ventana principal y menús
     actualizador.py  Diálogos y descarga en segundo plano de actualizaciones
+    licencia_dialog.py  Diálogo Archivo → Licencia
     tabs.py          Pestañas de documentos, clientes, vehículos y artículos
     dialogs.py       Altas/edición de cliente, vehículo, artículo, taller e intervención
     documento_editor.py  Editor de documento con líneas y totales en vivo

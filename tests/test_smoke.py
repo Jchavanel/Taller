@@ -511,6 +511,104 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def _firmar_licencia(priv, **campos):
+    import base64 as _b64
+    import json as _json
+    d = {"cliente": "Cli", "nif": "", "emitida": "2026-01-01",
+         "expira": "2099-01-01", "maquinas": None, "plan": "completo", "notas": ""}
+    d.update(campos)
+    payload = _json.dumps(d, sort_keys=True, separators=(",", ":")).encode()
+    firma = priv.sign(payload)
+    b = lambda x: _b64.urlsafe_b64encode(x).rstrip(b"=").decode()
+    return b(payload) + "." + b(firma)
+
+
+def test_licencia_firma_estados_y_prueba():
+    import datetime as _dt
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from taller import licencia
+
+    priv = Ed25519PrivateKey.generate()
+    pub_hex = priv.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
+
+    orig = licencia.CLAVE_PUBLICA_HEX
+    licencia.CLAVE_PUBLICA_HEX = pub_hex
+    try:
+        db = Database()
+        repo = Repository(db)
+
+        def limpiar():
+            for k in ("licencia_token", "prueba_inicio", "licencia_fecha_max"):
+                db.execute("DELETE FROM meta WHERE clave = ?", (k,))
+            db.commit()
+            (licencia._ruta_fichero()).unlink(missing_ok=True)
+
+        # licencia válida
+        limpiar()
+        tok = _firmar_licencia(priv, cliente="Taller Uno",
+                               expira=(_dt.date.today() + _dt.timedelta(days=200)).isoformat())
+        lic = licencia.guardar_token(repo, tok)
+        assert lic.cliente == "Taller Uno"
+        e = licencia.evaluar(repo)
+        assert e.codigo == "activa" and e.puede_operar
+
+        # a punto de caducar
+        limpiar()
+        db.execute("INSERT INTO meta VALUES ('licencia_token', ?)",
+                   (_firmar_licencia(priv, expira=(_dt.date.today() + _dt.timedelta(days=5)).isoformat()),))
+        db.commit()
+        assert licencia.evaluar(repo).codigo == "por_caducar"
+
+        # caducada -> bloqueo
+        limpiar()
+        db.execute("INSERT INTO meta VALUES ('licencia_token', ?)",
+                   (_firmar_licencia(priv, expira="2020-01-01"),))
+        db.commit()
+        e = licencia.evaluar(repo)
+        assert e.codigo == "caducada" and not e.puede_operar
+
+        # firma manipulada -> inválida
+        limpiar()
+        malo = _firmar_licencia(priv)[:-4] + "AAAA"
+        db.execute("INSERT INTO meta VALUES ('licencia_token', ?)", (malo,))
+        db.commit()
+        assert not licencia.evaluar(repo).puede_operar
+
+        # atada a otra máquina
+        limpiar()
+        db.execute("INSERT INTO meta VALUES ('licencia_token', ?)",
+                   (_firmar_licencia(priv, maquinas=["equipo-inexistente"]),))
+        db.commit()
+        assert licencia.evaluar(repo).codigo == "otra_maquina"
+
+        # prueba: nueva instalación
+        limpiar()
+        assert licencia.evaluar(repo).codigo == "prueba"
+        # prueba agotada
+        db.execute("UPDATE meta SET valor = ? WHERE clave = 'prueba_inicio'",
+                   ((_dt.date.today() - _dt.timedelta(days=40)).isoformat(),))
+        db.execute("DELETE FROM meta WHERE clave = 'licencia_fecha_max'")
+        db.commit()
+        e = licencia.evaluar(repo)
+        assert e.codigo == "prueba_fin" and not e.puede_operar
+
+        limpiar()
+    finally:
+        licencia.CLAVE_PUBLICA_HEX = orig
+
+
+def test_licencia_desactivada_por_defecto():
+    from taller import licencia
+    assert licencia.CLAVE_PUBLICA_HEX == ""      # se distribuye desactivada
+    e = licencia.evaluar(Repository(Database()))
+    assert e.codigo == "desactivada" and e.puede_operar
+    assert licencia.puede_operar() is True
+
+
 if __name__ == "__main__":
     for nombre, fn in list(globals().items()):
         if nombre.startswith("test_") and callable(fn):

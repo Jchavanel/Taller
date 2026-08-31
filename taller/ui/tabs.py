@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import domain
+from .. import licencia as _lic
 from ..pdf_export import generar_ficha_cliente, generar_pdf
 from ..repository import Repository
 from .dialogs import (
@@ -221,6 +222,8 @@ class _TablaBase(QWidget):
     def __init__(self, repo: Repository, parent=None) -> None:
         super().__init__(parent)
         self.repo = repo
+        # widgets/acciones que crean o modifican datos; se desactivan sin licencia
+        self._acciones_edicion: list = []
 
         root = QVBoxLayout(self)
         barra = QHBoxLayout()
@@ -251,6 +254,11 @@ class _TablaBase(QWidget):
         b_borrar.clicked.connect(self.eliminar)
         for b in (b_nuevo, b_editar, b_borrar):
             barra.addWidget(b)
+        self._acciones_edicion += [b_nuevo, b_editar, b_borrar]
+
+    def bloquear_edicion(self, bloq: bool) -> None:
+        for w in self._acciones_edicion:
+            w.setEnabled(not bloq)
 
     def _id_seleccionado(self) -> int | None:
         fila = self.tabla.currentRow()
@@ -268,6 +276,8 @@ class _TablaBase(QWidget):
 
     def _doble_clic(self) -> None:
         """Acción al hacer doble clic en una fila (por defecto, editar)."""
+        if not _lic.exigir_operar(self):
+            return
         self.editar()
 
     # métodos a implementar
@@ -286,20 +296,21 @@ class ClientesTab(QWidget):
         super().__init__(parent)
         self.repo = repo
         self._cliente_id: int | None = None
+        self._bloqueo_licencia = False
 
         root = QVBoxLayout(self)
         barra = QHBoxLayout()
         self.busqueda = QLineEdit()
         self.busqueda.setPlaceholderText("Buscar cliente por nombre, NIF o teléfono…")
         self.busqueda.textChanged.connect(self.refrescar)
-        b_nuevo = QPushButton("Nuevo cliente")
-        b_nuevo.setProperty("primary", "true")
-        b_nuevo.clicked.connect(self.nuevo)
-        b_borrar = QPushButton("Eliminar cliente")
-        b_borrar.clicked.connect(self.eliminar)
+        self._b_cli_nuevo = QPushButton("Nuevo cliente")
+        self._b_cli_nuevo.setProperty("primary", "true")
+        self._b_cli_nuevo.clicked.connect(self.nuevo)
+        self._b_cli_borrar = QPushButton("Eliminar cliente")
+        self._b_cli_borrar.clicked.connect(self.eliminar)
         barra.addWidget(self.busqueda, 1)
-        barra.addWidget(b_nuevo)
-        barra.addWidget(b_borrar)
+        barra.addWidget(self._b_cli_nuevo)
+        barra.addWidget(self._b_cli_borrar)
         root.addLayout(barra)
 
         split = QSplitter(Qt.Orientation.Horizontal)
@@ -398,6 +409,15 @@ class ClientesTab(QWidget):
     def _habilitar_ficha(self, activo: bool) -> None:
         for w in (self.grupo_veh, self.b_editar, self.b_ficha):
             w.setEnabled(activo)
+        if activo and self._bloqueo_licencia:
+            for w in (self.b_editar, self.b_veh_add, self.b_veh_edit, self.b_veh_del):
+                w.setEnabled(False)
+
+    def bloquear_edicion(self, bloq: bool) -> None:
+        self._bloqueo_licencia = bloq
+        self._b_cli_nuevo.setEnabled(not bloq)
+        self._b_cli_borrar.setEnabled(not bloq)
+        self._mostrar_ficha()  # re-aplica el estado de los botones de la ficha
 
     # ----------------------------------------------------------- selección
     def _fila_cliente_id(self) -> int | None:
@@ -495,6 +515,8 @@ class ClientesTab(QWidget):
             self._mostrar_ficha()
 
     def nuevo(self) -> None:
+        if not _lic.exigir_operar(self):
+            return
         dlg = ClienteDialog(self.repo, self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._cliente_id = dlg.result_id
@@ -503,12 +525,16 @@ class ClientesTab(QWidget):
     def _editar_cliente(self) -> None:
         if self._cliente_id is None:
             return
+        if not _lic.exigir_operar(self):
+            return
         if ClienteDialog(self.repo, self, cliente_id=self._cliente_id).exec() \
                 == QDialog.DialogCode.Accepted:
             self.refrescar()
 
     def eliminar(self) -> None:
         if self._cliente_id is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         if self.repo.cliente_tiene_documentos(self._cliente_id):
             QMessageBox.warning(self, "No se puede eliminar",
@@ -592,6 +618,7 @@ class VehiculosTab(_TablaBase):
         b_borrar.clicked.connect(self.eliminar)
         for b in (b_nuevo, b_editar, b_hist, b_borrar):
             barra.addWidget(b)
+        self._acciones_edicion += [b_nuevo, b_editar, b_borrar]
 
     def _doble_clic(self) -> None:
         # Los vehículos se dan de alta desde la ficha del cliente; aquí el doble clic
@@ -614,6 +641,8 @@ class VehiculosTab(_TablaBase):
             ])
 
     def nuevo(self) -> None:
+        if not _lic.exigir_operar(self):
+            return
         if not self.repo.list_clientes():
             QMessageBox.information(self, "Sin clientes",
                                    "Cree primero un cliente al que asignar el vehículo.")
@@ -625,12 +654,16 @@ class VehiculosTab(_TablaBase):
         vid = self._id_seleccionado()
         if vid is None:
             return
+        if not _lic.exigir_operar(self):
+            return
         if VehiculoDialog(self.repo, self, vehiculo_id=vid).exec() == QDialog.DialogCode.Accepted:
             self.refrescar()
 
     def eliminar(self) -> None:
         vid = self._id_seleccionado()
         if vid is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         if QMessageBox.question(self, "Eliminar", "¿Eliminar el vehículo?") \
                 == QMessageBox.StandardButton.Yes:
@@ -662,6 +695,7 @@ class ArticulosTab(_TablaBase):
         self.b_impuesto.clicked.connect(self._aplicar_impuesto)
         for b in (b_nuevo, b_editar, b_borrar, self.b_impuesto):
             barra.addWidget(b)
+        self._acciones_edicion += [b_nuevo, b_editar, b_borrar, self.b_impuesto]
 
     def refrescar(self) -> None:
         e = self.repo.get_empresa()
@@ -682,6 +716,8 @@ class ArticulosTab(_TablaBase):
             ])
 
     def _aplicar_impuesto(self) -> None:
+        if not _lic.exigir_operar(self):
+            return
         e = self.repo.get_empresa()
         iva = float(e["iva_defecto"])
         imp = e["impuesto_nombre"] or "IVA"
@@ -701,6 +737,8 @@ class ArticulosTab(_TablaBase):
                                    f"Actualizados {n} artículos a {imp} {iva:g}%.")
 
     def nuevo(self) -> None:
+        if not _lic.exigir_operar(self):
+            return
         if ArticuloDialog(self.repo, self).exec() == QDialog.DialogCode.Accepted:
             self.refrescar()
 
@@ -708,12 +746,16 @@ class ArticulosTab(_TablaBase):
         aid = self._id_seleccionado()
         if aid is None:
             return
+        if not _lic.exigir_operar(self):
+            return
         if ArticuloDialog(self.repo, self, articulo_id=aid).exec() == QDialog.DialogCode.Accepted:
             self.refrescar()
 
     def eliminar(self) -> None:
         aid = self._id_seleccionado()
         if aid is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         if QMessageBox.question(self, "Eliminar", "¿Eliminar el artículo?") \
                 == QMessageBox.StandardButton.Yes:
@@ -761,17 +803,22 @@ class DocumentosTab(_TablaBase):
         b_mas.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(b_mas)
         menu.addAction("Guardar PDF", self.exportar_pdf)
-        menu.addAction("Convertir…", self._convertir_dialogo)
+        a_conv = menu.addAction("Convertir…", self._convertir_dialogo)
         menu.addSeparator()
-        menu.addAction("Añadir al historial del vehículo", self._al_historial)
+        a_hist = menu.addAction("Añadir al historial del vehículo", self._al_historial)
         menu.addAction("Ver historial del vehículo", self._ver_historial)
         menu.addSeparator()
-        menu.addAction("Anular…", self.anular)
-        menu.addAction("Eliminar", self.eliminar)
+        a_anul = menu.addAction("Anular…", self.anular)
+        a_elim = menu.addAction("Eliminar", self.eliminar)
         b_mas.setMenu(menu)
 
         for b in (self.btn_nuevo, b_editar, b_imprimir, b_correo, b_mas):
             barra.addWidget(b)
+        self._acciones_edicion += [self.btn_nuevo, a_conv, a_hist, a_anul, a_elim]
+
+    def _doble_clic(self) -> None:
+        # abrir siempre está permitido; el editor se abre en solo lectura sin licencia
+        self.editar()
 
     def _cambiar_tipo(self) -> None:
         self._filtro_tipo = self.combo_tipo.currentData()
@@ -812,6 +859,8 @@ class DocumentosTab(_TablaBase):
             cal.refrescar()
 
     def nuevo(self) -> None:
+        if not _lic.exigir_operar(self):
+            return
         tipo = self._filtro_tipo
         if not tipo or tipo == self._EN_CURSO:
             tipo = domain.PRESUPUESTO
@@ -830,6 +879,8 @@ class DocumentosTab(_TablaBase):
     def eliminar(self) -> None:
         did = self._id_seleccionado()
         if did is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         doc = self.repo.get_documento(did)
         if doc["tipo"] == domain.FACTURA:
@@ -852,6 +903,8 @@ class DocumentosTab(_TablaBase):
     def anular(self) -> None:
         did = self._id_seleccionado()
         if did is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         doc = self.repo.get_documento(did)
         if doc["estado"] == "anulado":
@@ -926,6 +979,8 @@ class DocumentosTab(_TablaBase):
         did = self._id_seleccionado()
         if did is None:
             return
+        if not _lic.exigir_operar(self):
+            return
         doc = self.repo.get_documento(did)
         destinos = domain.CONVERSIONES.get(doc["tipo"], [])
         if not destinos:
@@ -941,6 +996,8 @@ class DocumentosTab(_TablaBase):
     def _al_historial(self) -> None:
         did = self._id_seleccionado()
         if did is None:
+            return
+        if not _lic.exigir_operar(self):
             return
         doc = self.repo.get_documento(did)
         if not doc["vehiculo_id"]:

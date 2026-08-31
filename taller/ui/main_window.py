@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QStatusBar,
@@ -39,6 +40,10 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(str(icono)))
         self.resize(1040, 640)
 
+        from .. import licencia
+        self.estado_licencia = licencia.evaluar(self.repo)
+        licencia.fijar(self.estado_licencia)
+
         self.tabs = QTabWidget()
         self.tab_documentos = DocumentosTab(self.repo)
         self.tab_calendario = CalendarioTab(self.repo)
@@ -51,7 +56,20 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_vehiculos, "Vehículos")
         self.tabs.addTab(self.tab_articulos, "Artículos y servicios")
         self.tabs.currentChanged.connect(self._refrescar_actual)
-        self.setCentralWidget(self.tabs)
+
+        from PySide6.QtWidgets import QVBoxLayout, QWidget
+        central = QWidget()
+        cl = QVBoxLayout(central)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
+        self.banda_licencia = QLabel()
+        self.banda_licencia.setProperty("clase", "aviso")
+        self.banda_licencia.setWordWrap(True)
+        self.banda_licencia.setContentsMargins(10, 6, 10, 6)
+        self.banda_licencia.hide()
+        cl.addWidget(self.banda_licencia)
+        cl.addWidget(self.tabs)
+        self.setCentralWidget(central)
 
         from .actualizador import GestorActualizaciones
         self._gestor_actu = GestorActualizaciones(self)
@@ -60,10 +78,12 @@ class MainWindow(QMainWindow):
         self._construir_menu()
         self._preparar_primer_arranque()
         self._refrescar_todo()
+        self._aplicar_licencia()
         self._avisar_datos_empresa()
 
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, self._gestor_actu.comprobar_al_arrancar)
+        QTimer.singleShot(300, self._avisar_licencia_arranque)
 
     # --------------------------------------------------------------- menú
     def _construir_menu(self) -> None:
@@ -95,12 +115,16 @@ class MainWindow(QMainWindow):
         act_carpeta.triggered.connect(self._abrir_carpeta_datos)
         m_archivo.addAction(act_carpeta)
         m_archivo.addSeparator()
+        act_licencia = QAction("Licencia…", self)
+        act_licencia.triggered.connect(self._abrir_licencia)
+        m_archivo.addAction(act_licencia)
+        m_archivo.addSeparator()
         act_salir = QAction("Salir", self)
         act_salir.setShortcut("Ctrl+Q")
         act_salir.triggered.connect(self.close)
         m_archivo.addAction(act_salir)
 
-        m_nuevo = barra.addMenu("&Nuevo")
+        self.m_nuevo = m_nuevo = barra.addMenu("&Nuevo")
         for etiqueta, tipo in [
             ("Presupuesto", "presupuesto"), ("Orden de trabajo", "orden"),
             ("Albarán", "albaran"), ("Factura", "factura"),
@@ -241,6 +265,46 @@ class MainWindow(QMainWindow):
     def _abrir_carpeta_datos(self) -> None:
         from .tabs import _abrir_fichero
         _abrir_fichero(data_dir())
+
+    # ------------------------------------------------------------- licencia
+    def _abrir_licencia(self) -> None:
+        from .licencia_dialog import LicenciaDialog
+        dlg = LicenciaDialog(self.repo, self)
+        dlg.exec()
+        if dlg.licencia_cambiada:
+            self._reevaluar_licencia()
+
+    def _reevaluar_licencia(self) -> None:
+        from .. import licencia
+        self.estado_licencia = licencia.evaluar(self.repo)
+        licencia.fijar(self.estado_licencia)
+        self._aplicar_licencia()
+
+    def _aplicar_licencia(self) -> None:
+        e = self.estado_licencia
+        if e.nivel == "ok":
+            self.banda_licencia.hide()
+        else:
+            self.banda_licencia.setText(
+                f"{e.titulo}. " + e.detalle.replace(chr(10), " ")
+                + ("   —  modo consulta (Archivo → Licencia)" if not e.puede_operar
+                   else "   —  Archivo → Licencia"))
+            self.banda_licencia.show()
+
+        bloq = not e.puede_operar
+        self.m_nuevo.setEnabled(not bloq)
+        for tab in (self.tab_documentos, self.tab_clientes, self.tab_vehiculos,
+                    self.tab_articulos):
+            if hasattr(tab, "bloquear_edicion"):
+                tab.bloquear_edicion(bloq)
+
+    def _avisar_licencia_arranque(self) -> None:
+        e = self.estado_licencia
+        if e.nivel == "bloqueo":
+            QMessageBox.warning(self, e.titulo or "Licencia",
+                                e.detalle + "\n\nPuedes seguir consultando, imprimiendo y "
+                                "exportando lo que ya tienes.")
+            self._abrir_licencia()
 
     def _avisar_datos_empresa(self) -> None:
         if self.repo.get_empresa()["nombre"]:

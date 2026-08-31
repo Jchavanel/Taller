@@ -50,7 +50,10 @@ class DocumentoEditor(QDialog):
             self.tipo = tipo or domain.PRESUPUESTO
             doc = None
 
-        self.solo_lectura = bool(doc is not None and repo.documento_bloqueado(doc))
+        bloqueado_doc = bool(doc is not None and repo.documento_bloqueado(doc))
+        from .. import licencia
+        bloqueo_licencia = not bloqueado_doc and not licencia.puede_operar()
+        self.solo_lectura = bloqueado_doc or bloqueo_licencia
 
         titulo = domain.TIPO_NOMBRE[self.tipo]
         if self.solo_lectura:
@@ -59,7 +62,15 @@ class DocumentoEditor(QDialog):
         self.resize(920, 680)
 
         root = QVBoxLayout(self)
-        if self.solo_lectura:
+        if bloqueo_licencia:
+            aviso = QLabel(
+                "El programa está en modo consulta (licencia caducada o prueba "
+                "terminada). No se pueden crear ni modificar documentos. "
+                "Ve a Archivo → Licencia.")
+            aviso.setProperty("clase", "aviso")
+            aviso.setWordWrap(True)
+            root.addWidget(aviso)
+        elif self.solo_lectura:
             estado_f = {"anulado": "anulada", "cobrado": "cobrada"}.get(
                 doc["estado"], doc["estado"])
             aviso = QLabel(
@@ -425,6 +436,8 @@ class DocumentoEditor(QDialog):
 
     # ------------------------------------------------------------- acciones
     def _nuevo_cliente(self) -> None:
+        if self.solo_lectura:
+            return
         dlg = ClienteDialog(self.repo, self)
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.result_id:
             self._cargar_clientes(seleccionar=dlg.result_id)
@@ -439,6 +452,8 @@ class DocumentoEditor(QDialog):
         HistorialDialog(self.repo, self, vehiculo_id=vid).exec()
 
     def _nuevo_vehiculo(self) -> None:
+        if self.solo_lectura:
+            return
         cliente_id = self.cliente.currentData()
         if not cliente_id:
             QMessageBox.information(self, "Cliente necesario",
