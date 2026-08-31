@@ -40,20 +40,31 @@ privada; la aplicación la verifica con la clave pública incrustada. Sin servid
 
 ## Emitir una licencia para un cliente
 
-El cliente te pasa la **huella de su equipo** (Archivo → Licencia → *Copiar*), si quieres
-atar la licencia a esa máquina.
+**Siempre átala al equipo del cliente.** Una licencia sin atar funciona en cualquier
+ordenador con el programa hasta que caduca: si se filtra o el cliente la comparte, se
+puede usar duplicada (el sistema es offline, no hay revocación).
 
-```bash
-# 12 meses, cualquier equipo
-python scripts/generar_licencia.py --cliente "Taller X, S.L." --nif B12345678 --meses 12
+1. El cliente te pasa la **huella de su equipo**: *Archivo → Licencia → botón «Copiar»*.
+   Es un código como `a1b2c3d4e5f6a7b8c9d0`.
+2. Emites la licencia con esa huella:
 
-# hasta una fecha concreta, atada a uno o varios equipos
-python scripts/generar_licencia.py --cliente "Taller X, S.L." \
-    --expira 2027-07-31 --maquina a1b2c3d4e5f6a7b8c9d0
-```
+   ```bash
+   python scripts/generar_licencia.py --cliente "Taller X, S.L." --nif B12345678 \
+       --meses 12 --maquina a1b2c3d4e5f6a7b8c9d0
+   ```
+
+   - Varios equipos: repite `--maquina` por cada uno.
+   - Hasta una fecha concreta en vez de meses: `--expira 2027-07-31`.
+
+Si ejecutas el script **sin `--maquina`**, avisa y pide confirmación (escribe `SI`). Para
+emitir a propósito una licencia sin atar (por ejemplo la tuya de propietario), añade
+`--sin-maquina`.
 
 La salida es **una sola línea**. Envíasela al cliente por correo. Él la pega en
 **Archivo → Licencia → Activar licencia**.
+
+Recomendación: licencias de cliente a **12 meses** y **atadas al equipo**. Así una copia
+filtrada no sirve en otro ordenador y, en cualquier caso, caduca en un año.
 
 ## Renovar (tras el pago)
 

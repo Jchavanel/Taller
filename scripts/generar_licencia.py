@@ -42,6 +42,8 @@ def main(argv=None) -> int:
     p.add_argument("--expira", help="fecha de caducidad AAAA-MM-DD (alternativa a --meses)")
     p.add_argument("--maquina", action="append", default=[],
                    help="huella de equipo (repetible). Sin esto, vale en cualquier equipo")
+    p.add_argument("--sin-maquina", action="store_true",
+                   help="emitir a propósito una licencia sin atar a ningún equipo, sin avisar")
     p.add_argument("--plan", default="completo")
     p.add_argument("--notas", default="")
     p.add_argument("--clave", type=Path,
@@ -61,6 +63,21 @@ def main(argv=None) -> int:
     else:
         print("Indica --meses N o --expira AAAA-MM-DD", file=sys.stderr)
         return 1
+
+    if not args.maquina and not args.sin_maquina:
+        print(
+            "\n  AVISO: vas a emitir una licencia SIN atar a ningún equipo.\n"
+            "  Cualquiera con este código podría usarla en otro ordenador hasta que\n"
+            f"  caduque ({expira:%d/%m/%Y}).\n\n"
+            "  Para atarla, pide la 'huella' al cliente (Archivo -> Licencia -> Copiar)\n"
+            "  y anade  --maquina <huella>.\n", file=sys.stderr)
+        try:
+            resp = input("  ¿Emitir de todas formas sin atar a un equipo? (escribe SI): ")
+        except EOFError:
+            resp = ""
+        if resp.strip().lower() not in ("si", "sí", "s"):
+            print("Cancelado.", file=sys.stderr)
+            return 1
 
     priv = serialization.load_pem_private_key(args.clave.read_bytes(), password=None)
 
