@@ -601,12 +601,16 @@ def test_licencia_firma_estados_y_prueba():
         licencia.CLAVE_PUBLICA_HEX = orig
 
 
-def test_licencia_desactivada_por_defecto():
+def test_licencia_desactivada_sin_clave():
     from taller import licencia
-    assert licencia.CLAVE_PUBLICA_HEX == ""      # se distribuye desactivada
-    e = licencia.evaluar(Repository(Database()))
-    assert e.codigo == "desactivada" and e.puede_operar
-    assert licencia.puede_operar() is True
+    orig = licencia.CLAVE_PUBLICA_HEX
+    licencia.CLAVE_PUBLICA_HEX = ""      # sin clave -> control de licencia inactivo
+    try:
+        e = licencia.evaluar(Repository(Database()))
+        assert e.codigo == "desactivada" and e.puede_operar
+        assert licencia.puede_operar() is True
+    finally:
+        licencia.CLAVE_PUBLICA_HEX = orig
 
 
 if __name__ == "__main__":

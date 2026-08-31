@@ -36,7 +36,7 @@ from .errores import log
 from .paths import data_dir
 
 # --- Clave pública del desarrollador (hex de 32 bytes Ed25519). Vacía = desactivado. --
-CLAVE_PUBLICA_HEX = ""
+CLAVE_PUBLICA_HEX = "7e0dd1caa9119e2354556507d1e58ffd92145cdcdb7697429c00da1df89736e8"
 # ------------------------------------------------------------------------------------
 
 PRUEBA_DIAS = 30
