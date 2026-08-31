@@ -317,13 +317,22 @@ Windows.
 ### Copia de seguridad
 
 La aplicación hace una **copia automática al arrancar** (una al día), en
-`datos/copias/taller-AAAA-MM-DD-HHMMSS.db`, y conserva las últimas 20. Además:
+`datos/copias/taller-AAAA-MM-DD-HHMMSS.db`, y conserva las últimas 20. En
+**Archivo → Copias de seguridad**:
 
-- **Archivo → Copia de seguridad ahora**: fuerza una copia inmediata.
-- **Archivo → Restaurar copia de seguridad**: sustituye la base de datos por una copia
-  anterior (antes guarda el estado actual). La aplicación se cierra; vuelve a abrirla.
+- **Copia de seguridad ahora**: fuerza una copia inmediata.
+- **Guardar copia en… (USB / disco externo)**: elige dónde guardar una copia puntual
+  (un pendrive, otro disco, una carpeta de red…).
+- **Carpeta de copia automática (USB)**: elige una carpeta externa; a partir de ahí,
+  **cada copia** (la diaria y las manuales) se guarda también ahí en cuanto el pendrive o
+  disco esté conectado. Si no está disponible, la copia local se hace igualmente y queda
+  anotado en el registro. «No» la desactiva.
+- **Restaurar copia de seguridad**: sustituye la base de datos por una copia anterior
+  (antes guarda el estado actual). Puedes elegir una copia del equipo o de un pendrive.
+  La aplicación se cierra; vuelve a abrirla.
 
-Para llevártelo a otro equipo o a la nube, copia la carpeta `datos/` entera.
+Así la copia no depende de un solo equipo. Para llevarte todo, también puedes copiar la
+carpeta `datos/` entera.
 
 Se puede forzar otra ubicación con variables de entorno:
 

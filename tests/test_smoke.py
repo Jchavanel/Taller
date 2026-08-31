@@ -416,6 +416,27 @@ def test_copias_de_seguridad():
         assert c2 and c2 != c1
         assert len(backup.listar_copias()) >= 2
 
+        # --- copia en carpeta externa (USB) ---
+        repo = Repository(db)
+        externa = Path(tempfile.mkdtemp())
+        backup.set_carpeta_externa(repo, externa)
+        assert backup.carpeta_externa(repo) == externa
+        c3 = backup.hacer_copia(db, forzar=True)
+        ok, msg = backup.replicar_externa(c3, repo)
+        assert ok, msg
+        assert (externa / "taller-copias" / c3.name).is_file()
+
+        # carpeta externa no disponible -> no rompe, avisa
+        backup.set_carpeta_externa(repo, externa / "no-existe-pendrive")
+        ok2, msg2 = backup.replicar_externa(c3, repo)
+        assert not ok2 and "disponible" in msg2
+        backup.set_carpeta_externa(repo, None)
+
+        # exportar copia puntual a una ruta cualquiera
+        suelto = Path(tempfile.mkdtemp()) / "copia-manual.db"
+        p = backup.exportar_copia(suelto, db)
+        assert p.is_file() and p.stat().st_size > 0
+
         Repository(db).save_cliente({"nombre": "Añadido después"})
         n_antes = Repository(db).estadisticas()["clientes"]
         backup.restaurar(c1, db)  # cierra db

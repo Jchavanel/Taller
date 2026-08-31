@@ -108,12 +108,15 @@ class MainWindow(QMainWindow):
             act_taller.triggered.connect(self._precargar_taller)
             m_archivo.addAction(act_taller)
         m_archivo.addSeparator()
-        act_copia = QAction("Copia de seguridad ahora…", self)
-        act_copia.triggered.connect(self._copia_seguridad)
-        m_archivo.addAction(act_copia)
-        act_restaurar = QAction("Restaurar copia de seguridad…", self)
-        act_restaurar.triggered.connect(self._restaurar_copia)
-        m_archivo.addAction(act_restaurar)
+        m_copias = m_archivo.addMenu("Copias de seguridad")
+        m_copias.addAction("Copia de seguridad ahora…", self._copia_seguridad)
+        m_copias.addAction("Guardar copia en… (USB / disco externo)",
+                           self._guardar_copia_en)
+        m_copias.addSeparator()
+        m_copias.addAction("Carpeta de copia automática (USB)…",
+                           self._carpeta_copia_externa)
+        m_copias.addSeparator()
+        m_copias.addAction("Restaurar copia de seguridad…", self._restaurar_copia)
         act_carpeta = QAction("Abrir carpeta de datos…", self)
         act_carpeta.triggered.connect(self._abrir_carpeta_datos)
         m_archivo.addAction(act_carpeta)
@@ -231,15 +234,77 @@ class MainWindow(QMainWindow):
             precargar_taller(self.repo)
 
     def _copia_seguridad(self) -> None:
-        from ..backup import carpeta_copias, hacer_copia
+        from ..backup import (carpeta_copias, carpeta_externa, hacer_copia,
+                              replicar_externa)
         ruta = hacer_copia(self.db, forzar=True)
-        if ruta:
-            QMessageBox.information(
-                self, "Copia de seguridad",
-                f"Copia creada:\n{ruta.name}\n\nen {carpeta_copias()}")
-        else:
+        if not ruta:
             QMessageBox.warning(self, "Copia de seguridad",
                                 "No se ha podido crear la copia (revisa el registro).")
+            return
+        lineas = [f"Copia creada: {ruta.name}", f"en {carpeta_copias()}"]
+        if carpeta_externa(self.repo) is not None:
+            ok, msg = replicar_externa(ruta, self.repo)
+            lineas += ["", ("✓ Copiada también a:\n" + msg) if ok else ("⚠ " + msg)]
+        QMessageBox.information(self, "Copia de seguridad", "\n".join(lineas))
+
+    def _guardar_copia_en(self) -> None:
+        from datetime import date
+
+        from PySide6.QtWidgets import QFileDialog
+
+        from ..backup import exportar_copia
+        sugerido = f"taller-{date.today().isoformat()}.db"
+        ruta, _ = QFileDialog.getSaveFileName(
+            self, "Guardar copia de seguridad (elige el pendrive o disco externo)",
+            sugerido, "Base de datos (*.db)")
+        if not ruta:
+            return
+        try:
+            p = exportar_copia(Path(ruta), self.db)
+        except OSError as e:
+            QMessageBox.critical(self, "Guardar copia", f"No se pudo guardar:\n{e}")
+            return
+        QMessageBox.information(self, "Guardar copia",
+                               f"Copia guardada en:\n{p}")
+
+    def _carpeta_copia_externa(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        from ..backup import (carpeta_externa, hacer_copia, replicar_externa,
+                              set_carpeta_externa)
+        actual = carpeta_externa(self.repo)
+        if actual is not None:
+            r = QMessageBox.question(
+                self, "Carpeta de copia automática",
+                f"Ahora, cada copia de seguridad se guarda también en:\n{actual}\n\n"
+                "¿Elegir otra carpeta?\n(«No» desactiva la copia automática externa.)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                | QMessageBox.StandardButton.Cancel)
+            if r == QMessageBox.StandardButton.Cancel:
+                return
+            if r == QMessageBox.StandardButton.No:
+                set_carpeta_externa(self.repo, None)
+                self.statusBar().showMessage("Copia automática externa desactivada", 5000)
+                return
+        carpeta = QFileDialog.getExistingDirectory(
+            self, "Elegir carpeta para la copia automática (USB / disco externo)",
+            str(actual) if actual else "")
+        if not carpeta:
+            return
+        set_carpeta_externa(self.repo, carpeta)
+        ruta = hacer_copia(self.db, forzar=True)
+        ok, msg = replicar_externa(ruta, self.repo) if ruta else (False, "")
+        if ok:
+            QMessageBox.information(
+                self, "Carpeta de copia automática",
+                f"Configurada:\n{carpeta}\n\n"
+                "Se ha guardado ahí una copia de prueba correctamente.\n"
+                "A partir de ahora, cada copia de seguridad se guarda también en esa "
+                "carpeta (si está disponible).")
+        else:
+            QMessageBox.warning(
+                self, "Carpeta de copia automática",
+                f"Carpeta guardada:\n{carpeta}\n\nPero la copia de prueba ha fallado:\n{msg}")
 
     def _restaurar_copia(self) -> None:
         from ..backup import carpeta_copias, listar_copias, restaurar
@@ -364,7 +429,7 @@ def run() -> int:
     import sys
     import time
 
-    from ..backup import hacer_copia
+    from ..backup import hacer_copia, replicar_externa
     from ..errores import configurar_logging, instalar_excepthook, log
     from . import theme
     from .splash import Splash
@@ -400,6 +465,9 @@ def run() -> int:
         copia = hacer_copia(db)
         if copia:
             log().info("Copia diaria: %s", copia.name)
+            ok, msg = replicar_externa(copia, Repository(db))
+            if not ok and msg:
+                log().warning("Copia externa: %s", msg.replace("\n", " "))
     except Exception:  # noqa: BLE001
         log().exception("Fallo al hacer la copia de seguridad de arranque")
 
