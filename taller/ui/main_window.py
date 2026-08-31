@@ -96,6 +96,9 @@ class MainWindow(QMainWindow):
         act_correo = QAction("Configurar correo electrónico…", self)
         act_correo.triggered.connect(self._configurar_correo)
         m_archivo.addAction(act_correo)
+        act_numeracion = QAction("Numeración de documentos…", self)
+        act_numeracion.triggered.connect(self._editar_numeracion)
+        m_archivo.addAction(act_numeracion)
         act_seed = QAction("Cargar artículos y servicios de ejemplo…", self)
         act_seed.triggered.connect(self._cargar_ejemplo)
         m_archivo.addAction(act_seed)
@@ -190,6 +193,12 @@ class MainWindow(QMainWindow):
         from .correo import CorreoConfigDialog
         if CorreoConfigDialog(self.repo, self).exec() == QDialog.DialogCode.Accepted:
             self.statusBar().showMessage("Configuración de correo guardada", 4000)
+
+    def _editar_numeracion(self) -> None:
+        from .numeracion_dialog import NumeracionDialog
+        if NumeracionDialog(self.repo, self).exec() == QDialog.DialogCode.Accepted:
+            self.statusBar().showMessage("Numeración actualizada", 4000)
+            self._refrescar_todo()
 
     def _cargar_ejemplo(self) -> None:
         from ..seed import cargar_articulos_ejemplo

@@ -511,6 +511,45 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_numeracion_inicial_correlativa():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Migración SL"})
+    linea = [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}]
+
+    # el taller ya emitió 560 facturas fuera del programa este año
+    repo.set_numeracion_inicial(domain.FACTURA, 2026, 561)
+    assert repo.proximo_numero(domain.FACTURA, 2026) == 561
+
+    f1 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-06-01",
+                               "cliente_id": cid}, linea)
+    assert repo.get_documento(f1)["numero"] == "FAC-2026-0561"
+
+    f2 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-06-02",
+                               "cliente_id": cid}, linea)
+    assert repo.get_documento(f2)["numero"] == "FAC-2026-0562"    # sigue correlativo
+
+    # no se puede fijar por debajo de lo ya emitido
+    try:
+        repo.set_numeracion_inicial(domain.FACTURA, 2026, 100)
+        assert False, "debería rechazar un número inferior al emitido"
+    except ValueError:
+        pass
+
+    # se puede saltar hacia arriba (emitió más en papel) y sigue desde ahí
+    repo.set_numeracion_inicial(domain.FACTURA, 2026, 600)
+    f3 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-06-03",
+                               "cliente_id": cid}, linea)
+    assert repo.get_documento(f3)["numero"] == "FAC-2026-0600"
+
+    # otros tipos no se ven afectados por el ajuste de facturas
+    esperado = repo.proximo_numero(domain.PRESUPUESTO, 2026)
+    assert esperado < 500
+    p1 = repo.crear_documento({"tipo": domain.PRESUPUESTO, "fecha": "2026-06-01",
+                               "cliente_id": cid}, linea)
+    assert repo.get_documento(p1)["numero"] == f"PRE-2026-{esperado:04d}"
+
+
 def _firmar_licencia(priv, **campos):
     import base64 as _b64
     import json as _json

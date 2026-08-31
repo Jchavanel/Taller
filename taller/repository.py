@@ -462,7 +462,52 @@ class Repository:
             "SELECT COALESCE(MAX(secuencia), 0) AS m FROM documento WHERE tipo = ? AND anio = ?",
             (tipo, anio),
         )
-        return int(row["m"]) + 1
+        base = int(row["m"]) + 1
+        forzado = self.db.query_one(
+            "SELECT siguiente FROM numeracion WHERE tipo = ? AND anio = ?", (tipo, anio))
+        if forzado and int(forzado["siguiente"]) > base:
+            return int(forzado["siguiente"])
+        return base
+
+    # ------------------------------------------------------------- numeración
+    def ultimo_numero(self, tipo: str, anio: int) -> int:
+        """Mayor número ya emitido de ese tipo y año (0 si no hay ninguno)."""
+        row = self.db.query_one(
+            "SELECT COALESCE(MAX(secuencia), 0) AS m FROM documento WHERE tipo = ? AND anio = ?",
+            (tipo, anio),
+        )
+        return int(row["m"])
+
+    def proximo_numero(self, tipo: str, anio: int) -> int:
+        """Número que se asignará al siguiente documento de ese tipo y año."""
+        return self._siguiente_secuencia(tipo, anio)
+
+    def get_numeracion_inicial(self, tipo: str, anio: int) -> int | None:
+        row = self.db.query_one(
+            "SELECT siguiente FROM numeracion WHERE tipo = ? AND anio = ?", (tipo, anio))
+        return int(row["siguiente"]) if row else None
+
+    def set_numeracion_inicial(self, tipo: str, anio: int, siguiente: int | None) -> None:
+        """Fija el próximo número de ese tipo/año como un mínimo.
+
+        No permite bajar por debajo de un documento ya emitido. ``None`` borra el ajuste.
+        """
+        if siguiente is None:
+            self.db.execute("DELETE FROM numeracion WHERE tipo = ? AND anio = ?", (tipo, anio))
+            self.db.commit()
+            return
+        siguiente = int(siguiente)
+        maximo = self.ultimo_numero(tipo, anio)
+        if siguiente <= maximo:
+            raise ValueError(
+                f"Ya hay un documento con el número {maximo}; el siguiente debe ser "
+                f"mayor que {maximo}.")
+        self.db.execute(
+            "INSERT INTO numeracion (tipo, anio, siguiente) VALUES (?, ?, ?) "
+            "ON CONFLICT(tipo, anio) DO UPDATE SET siguiente = excluded.siguiente",
+            (tipo, anio, siguiente),
+        )
+        self.db.commit()
 
     def crear_documento(self, cabecera: dict, lineas: list[dict]) -> int:
         """Crea un documento nuevo asignando número correlativo. Devuelve el id."""

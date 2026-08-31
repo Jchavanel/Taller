@@ -283,6 +283,12 @@ Cada tipo de documento lleva su propia serie anual correlativa:
 
 El número se asigna al guardar y no se reutiliza.
 
+**Continuar una numeración existente**: si el taller ya venía emitiendo documentos con
+otro sistema (por ejemplo, 560 facturas este año), en **Archivo → Numeración de
+documentos…** se indica desde qué número sigue cada serie (p. ej. factura 561). El
+programa continúa correlativo a partir de ahí; si más adelante se emite un número mayor,
+sigue desde ese último. No permite poner un número igual o inferior a uno ya emitido.
+
 ## Dónde se guardan los datos
 
 Todo se guarda en la carpeta **`datos/` dentro de la propia carpeta del programa**:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -158,6 +158,13 @@ CREATE TABLE IF NOT EXISTS intervencion (
     prox_fecha    TEXT,
     prox_kms      INTEGER,
     creado        TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS numeracion (
+    tipo      TEXT NOT NULL,
+    anio      INTEGER NOT NULL,
+    siguiente INTEGER NOT NULL,
+    PRIMARY KEY (tipo, anio)
 );
 
 CREATE INDEX IF NOT EXISTS idx_vehiculo_cliente ON vehiculo(cliente_id);
