@@ -533,14 +533,33 @@ class DocumentoEditor(QDialog):
 _FECHA_MIN = QDate(2000, 1, 1)
 
 
+class _FechaOpcional(QDateEdit):
+    """QDateEdit opcional: vacío = «— sin fecha —». Al abrir el calendario estando
+    vacío, se posiciona en el mes en curso (no en la fecha mínima)."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setCalendarPopup(True)
+        self.setDisplayFormat("dd/MM/yyyy")
+        self.setMinimumDate(_FECHA_MIN)
+        self.setSpecialValueText("— sin fecha —")
+        self.setDate(_FECHA_MIN)
+        self._cal = self.calendarWidget()
+        # el popup del calendario es el padre del QCalendarWidget
+        popup = self._cal.parent() if self._cal is not None else None
+        (popup or self._cal or self).installEventFilter(self)
+
+    def eventFilter(self, obj, ev) -> bool:  # noqa: N802
+        from PySide6.QtCore import QEvent
+        if (self._cal is not None and ev.type() == QEvent.Type.Show
+                and self.date() == _FECHA_MIN):
+            hoy = QDate.currentDate()
+            self._cal.setCurrentPage(hoy.year(), hoy.month())
+        return super().eventFilter(obj, ev)
+
+
 def _date_opcional() -> QDateEdit:
-    w = QDateEdit()
-    w.setCalendarPopup(True)
-    w.setDisplayFormat("dd/MM/yyyy")
-    w.setMinimumDate(_FECHA_MIN)
-    w.setSpecialValueText("— sin fecha —")
-    w.setDate(_FECHA_MIN)
-    return w
+    return _FechaOpcional()
 
 
 def _set_date_opcional(w: QDateEdit, iso: str | None) -> None:
