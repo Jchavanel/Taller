@@ -846,7 +846,8 @@ class DocumentosTab(_TablaBase):
             vehiculo = " ".join(x for x in [d["marca"], d["modelo"]] if x)
             self._set_fila(i, d["id"], [
                 d["numero"], d["fecha"], d["cliente_nombre"] or "", d["matricula"] or "",
-                vehiculo, d["estado"], domain.formato_moneda(d["total"]),
+                vehiculo, domain.ESTADO_NOMBRE.get(d["estado"], d["estado"]),
+                domain.formato_moneda(d["total"]),
             ])
         if en_curso and not filtro and not filas:
             self.busqueda.setPlaceholderText("No hay trabajos en curso — todo al día 👍")
@@ -871,6 +872,11 @@ class DocumentosTab(_TablaBase):
             tipo = domain.PRESUPUESTO
         dlg = DocumentoEditor(self.repo, self, tipo=tipo)
         if dlg.exec() == QDialog.DialogCode.Accepted:
+            # una factura no está "en curso": muestra su vista para no perderla de vista
+            if tipo == domain.FACTURA and self._filtro_tipo != domain.FACTURA:
+                idx = self.combo_tipo.findData(domain.FACTURA)
+                if idx >= 0:
+                    self.combo_tipo.setCurrentIndex(idx)
             self.refrescar_todo()
             if dlg.documento_id:
                 self._tras_emitir_factura(dlg.documento_id)
@@ -1247,7 +1253,8 @@ class CalendarioTab(QWidget):
             if d["tipo"] == domain.FACTURA and d["estado"] != "anulado":
                 total_fac += d["total"] or 0
             valores = [d["numero"], domain.TIPO_NOMBRE.get(d["tipo"], d["tipo"]),
-                       d["cliente_nombre"] or "", d["matricula"] or "", d["estado"],
+                       d["cliente_nombre"] or "", d["matricula"] or "",
+                       domain.ESTADO_NOMBRE.get(d["estado"], d["estado"]),
                        domain.formato_moneda(d["total"])]
             for col, val in enumerate(valores):
                 item = QTableWidgetItem(val)

@@ -519,6 +519,9 @@ class Repository:
         fecha = cabecera.get("fecha") or _today()
         anio = int(fecha[:4])
         tipo = cabecera["tipo"]
+        estado = cabecera.get("estado") or "abierto"
+        if tipo == domain.FACTURA:
+            estado = domain.normalizar_estado_factura(estado)
         totales = self._totales_desde_dicts(lineas, cabecera.get("descuento_pct", 0.0))
 
         # Reintenta si otra instancia ha cogido el mismo número entre el cálculo y el insert.
@@ -535,7 +538,7 @@ class Repository:
                     (
                         tipo, numero, anio, secuencia, fecha,
                         cabecera.get("cliente_id"), cabecera.get("vehiculo_id"),
-                        cabecera.get("kms"), cabecera.get("estado", "abierto"),
+                        cabecera.get("kms"), estado,
                         cabecera.get("descuento_pct", 0.0),
                         cabecera.get("observaciones", ""),
                         cabecera.get("forma_pago", ""), cabecera.get("origen_id"),
@@ -561,6 +564,9 @@ class Repository:
         actual = self.get_documento(documento_id)
         fecha = cabecera.get("fecha") or _today()
         nuevo_anio = int(str(fecha)[:4])
+        estado = cabecera.get("estado") or "abierto"
+        if (actual and actual["tipo"] == domain.FACTURA) or cabecera.get("tipo") == domain.FACTURA:
+            estado = domain.normalizar_estado_factura(estado)
 
         # Si cambia el año, el número deja de ser correlativo: renumerar.
         # Las facturas no cambian de año/número (usa una rectificativa).
@@ -582,7 +588,7 @@ class Repository:
             (
                 fecha,
                 cabecera.get("cliente_id"), cabecera.get("vehiculo_id"),
-                cabecera.get("kms"), cabecera.get("estado", "abierto"),
+                cabecera.get("kms"), estado,
                 cabecera.get("descuento_pct", 0.0), cabecera.get("observaciones", ""),
                 cabecera.get("forma_pago", ""),
                 cabecera.get("fecha_entrada"), cabecera.get("entrega_prevista"),

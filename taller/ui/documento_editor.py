@@ -146,7 +146,17 @@ class DocumentoEditor(QDialog):
         self.kms.setSuffix(" km")
 
         self.estado = QComboBox()
-        self.estado.addItems(domain.ESTADOS)
+        if self.tipo == domain.FACTURA:
+            # una factura está siempre emitida; solo puede pasar a cobrada (queda bloqueada)
+            for e in domain.ESTADOS_FACTURA:
+                self.estado.addItem(domain.ESTADO_NOMBRE[e], e)
+            if doc is not None and doc["estado"] == "anulado":
+                self.estado.addItem(domain.ESTADO_NOMBRE["anulado"], "anulado")
+            self.estado.setToolTip("Al marcar «Cobrada» y guardar, la factura queda "
+                                   "bloqueada y no se podrá modificar.")
+        else:
+            for e in domain.ESTADOS:
+                self.estado.addItem(domain.ESTADO_NOMBRE.get(e, e), e)
 
         self.forma_pago = QComboBox()
         self.forma_pago.setEditable(True)
@@ -318,7 +328,8 @@ class DocumentoEditor(QDialog):
         if idx >= 0:
             self.vehiculo.setCurrentIndex(idx)
         self.kms.setValue(doc["kms"] or 0)
-        self.estado.setCurrentText(doc["estado"])
+        _idx_estado = self.estado.findData(doc["estado"])
+        self.estado.setCurrentIndex(_idx_estado if _idx_estado >= 0 else 0)
         self.forma_pago.setCurrentText(doc["forma_pago"])
         self.descuento.setValue(doc["descuento_pct"])
         self.observaciones.setPlainText(doc["observaciones"])
@@ -514,7 +525,7 @@ class DocumentoEditor(QDialog):
             "cliente_id": self.cliente.currentData(),
             "vehiculo_id": self.vehiculo.currentData(),
             "kms": self.kms.value() or None,
-            "estado": self.estado.currentText(),
+            "estado": self.estado.currentData() or self.estado.currentText(),
             "descuento_pct": self.descuento.value(),
             "observaciones": self.observaciones.toPlainText().strip(),
             "forma_pago": self.forma_pago.currentText().strip(),
@@ -537,6 +548,15 @@ class DocumentoEditor(QDialog):
                                 "Una factura debe tener un cliente asignado.")
             return False
         cabecera = self._cabecera()
+        if (self.tipo == domain.FACTURA and cabecera["estado"] == "cobrado"
+                and QMessageBox.question(
+                    self, "Marcar como cobrada",
+                    "Vas a marcar la factura como COBRADA.\n\n"
+                    "Quedará bloqueada: no podrás modificarla después "
+                    "(para corregirla habría que emitir una rectificativa).\n\n¿Continuar?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                ) != QMessageBox.StandardButton.Yes):
+            return False
         if self.documento_id:
             self.repo.actualizar_documento(self.documento_id, cabecera, lineas)
         else:

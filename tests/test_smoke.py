@@ -532,6 +532,40 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_factura_estado_emitida_y_bloqueo():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Estados SL"})
+    linea = [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}]
+
+    # una factura nueva nunca queda "abierto": está emitida ("facturado")
+    fid = repo.crear_documento(
+        {"tipo": domain.FACTURA, "fecha": "2026-06-01", "cliente_id": cid,
+         "estado": "abierto"}, linea)
+    assert repo.get_documento(fid)["estado"] == "facturado"
+    assert not repo.documento_bloqueado(repo.get_documento(fid))  # emitida: editable
+
+    # marcarla como cobrada -> queda bloqueada
+    repo.actualizar_documento(fid, {"tipo": domain.FACTURA, "fecha": "2026-06-01",
+                                    "cliente_id": cid, "estado": "cobrado"}, linea)
+    doc = repo.get_documento(fid)
+    assert doc["estado"] == "cobrado"
+    assert repo.documento_bloqueado(doc)
+
+    # un presupuesto sí puede estar "abierto"
+    pid = repo.crear_documento({"tipo": domain.PRESUPUESTO, "fecha": "2026-06-01",
+                                "cliente_id": cid}, linea)
+    assert repo.get_documento(pid)["estado"] == "abierto"
+
+    # convertir un presupuesto en factura -> la factura sale emitida
+    ot = repo.convertir_documento(pid, domain.ORDEN)
+    f2 = repo.convertir_documento(ot, domain.FACTURA)
+    assert repo.get_documento(f2)["estado"] == "facturado"
+
+    assert domain.normalizar_estado_factura("abierto") == "facturado"
+    assert domain.normalizar_estado_factura("anulado") == "anulado"
+
+
 def test_articulo_canon_reciclaje():
     db = Database()
     repo = Repository(db)

@@ -40,6 +40,21 @@ CONVERSIONES = {
 ESTADOS = ["abierto", "aprobado", "rechazado", "en curso", "finalizado",
            "facturado", "cobrado", "anulado"]
 
+ESTADO_NOMBRE = {
+    "abierto": "Abierto", "aprobado": "Aprobado", "rechazado": "Rechazado",
+    "en curso": "En curso", "finalizado": "Finalizado",
+    "facturado": "Facturada", "cobrado": "Cobrada", "anulado": "Anulada",
+}
+
+# Una factura, una vez guardada, está emitida: nunca queda "abierta".
+ESTADOS_FACTURA = ["facturado", "cobrado"]
+ESTADOS_FACTURA_VALIDOS = ("facturado", "cobrado", "anulado")
+
+
+def normalizar_estado_factura(estado: str | None) -> str:
+    """Toda factura guardada está al menos 'facturado' (emitida)."""
+    return estado if estado in ESTADOS_FACTURA_VALIDOS else "facturado"
+
 # Un presupuesto deja de estar "en curso" cuando se aprueba (pasa a orden), se
 # rechaza o avanza en el flujo. Una orden, cuando se termina o se factura.
 CERRADO_PRESUPUESTO = ("aprobado", "rechazado", "finalizado", "facturado",

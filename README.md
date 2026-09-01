@@ -372,12 +372,17 @@ TALLER_DB=/media/usb/taller.db            taller-coches   # solo el fichero de B
 
 ## Facturas
 
+- Una factura, al guardarla, queda **emitida** (estado *Facturada*): **nunca** se queda en
+  «abierto». Su estado solo puede ser **Facturada** o **Cobrada**.
+- Al marcarla **Cobrada** y guardar (pide confirmación), la factura queda **bloqueada**:
+  se abre en **solo lectura** y no se puede modificar. Para corregirla se emite una
+  factura rectificativa.
 - Las facturas **no se pueden eliminar** (se perdería su número). Se **anulan**:
   *Documentos → Más → Anular…*. La factura anulada se conserva íntegra, mantiene su
   número, se registra el motivo y el PDF sale con la marca **ANULADO**.
-- Una factura **anulada o cobrada** se abre en **solo lectura**. Para corregirla se emite
-  una factura rectificativa.
 - Los números de factura **nunca se reutilizan**.
+- Al crear una factura, la pestaña Documentos cambia a la vista «Factura» para que la veas
+  (las facturas no aparecen en «En curso»; se consultan también en **Calendario**).
 
 ## Nota fiscal
 
