@@ -803,6 +803,7 @@ class DocumentosTab(_TablaBase):
         b_mas.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(b_mas)
         menu.addAction("Guardar PDF", self.exportar_pdf)
+        menu.addAction("Enviar WhatsApp de agradecimiento…", self._whatsapp_manual)
         a_conv = menu.addAction("Convertir…", self._convertir_dialogo)
         menu.addSeparator()
         a_hist = menu.addAction("Añadir al historial del vehículo", self._al_historial)
@@ -867,6 +868,8 @@ class DocumentosTab(_TablaBase):
         dlg = DocumentoEditor(self.repo, self, tipo=tipo)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refrescar_todo()
+            if dlg.documento_id:
+                self._tras_emitir_factura(dlg.documento_id)
 
     def editar(self) -> None:
         did = self._id_seleccionado()
@@ -1065,6 +1068,62 @@ class DocumentosTab(_TablaBase):
         dlg = DocumentoEditor(self.repo, self, documento_id=nuevo_id)
         dlg.exec()
         self.refrescar_todo()
+        if nuevo_tipo == domain.FACTURA:
+            self._tras_emitir_factura(nuevo_id)
+
+    # ------------------------------------------------------ WhatsApp + reseñas
+    def _tras_emitir_factura(self, doc_id: int) -> None:
+        doc = self.repo.get_documento(doc_id)
+        if not doc or doc["tipo"] != domain.FACTURA:
+            return
+        emp = self.repo.get_empresa()
+        if not emp["whatsapp_tras_factura"] or not (emp["resenas_url"] or "").strip():
+            return
+        self._enviar_whatsapp(doc, emp, preguntar=True)
+
+    def _whatsapp_manual(self) -> None:
+        did = self._id_seleccionado()
+        if did is None:
+            return
+        self._enviar_whatsapp(self.repo.get_documento(did), preguntar=False)
+
+    def _enviar_whatsapp(self, doc, emp=None, *, preguntar: bool) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from .. import whatsapp
+        if doc is None:
+            return
+        emp = emp or self.repo.get_empresa()
+        cli = self.repo.get_cliente(doc["cliente_id"]) if doc["cliente_id"] else None
+        tel = ((cli["telefono"] if cli else "") or "").strip()
+        if not tel:
+            if not preguntar:
+                QMessageBox.information(self, "WhatsApp",
+                                       "El cliente no tiene teléfono guardado.")
+            return
+        if not (emp["resenas_url"] or "").strip() and not preguntar:
+            QMessageBox.information(
+                self, "WhatsApp",
+                "Configura el enlace de reseñas en Archivo → Datos de mi taller.")
+            return
+        ctx = whatsapp.contexto_factura(doc, cli, emp)
+        plantilla = (emp["whatsapp_plantilla"] or "").strip() or whatsapp.plantilla_por_defecto()
+        texto = whatsapp.aplicar_plantilla(plantilla, ctx)
+        enlace = whatsapp.construir_enlace(tel, texto, emp["whatsapp_prefijo"] or "34")
+        if not enlace:
+            QMessageBox.warning(self, "WhatsApp",
+                                f"El teléfono del cliente no parece válido: {tel}")
+            return
+        if preguntar and QMessageBox.question(
+            self, "WhatsApp de agradecimiento",
+            f"¿Enviar un WhatsApp a {cli['nombre']} ({tel}) con el enlace para dejar "
+            "una reseña en Google?\n\nSe abrirá WhatsApp con el mensaje ya escrito; solo "
+            "tendrás que pulsar «Enviar».",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        QDesktopServices.openUrl(QUrl(enlace))
 
 
 class CalendarioTab(QWidget):

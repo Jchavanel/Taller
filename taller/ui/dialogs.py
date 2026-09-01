@@ -524,6 +524,39 @@ class EmpresaDialog(_BaseDialog):
         btn_cond = QPushButton("Restaurar textos por defecto")
         btn_cond.clicked.connect(self._restaurar_condiciones)
         self.form.addRow("", btn_cond)
+
+        # --- WhatsApp de agradecimiento + reseñas de Google ---
+        from .. import whatsapp
+        self.resenas_url = QLineEdit(row["resenas_url"])
+        self.resenas_url.setPlaceholderText(
+            "https://g.page/r/…  (en tu ficha de Google Empresa → «Pedir reseñas»)")
+
+        self.wa_prefijo = QLineEdit(row["whatsapp_prefijo"] or "34")
+        self.wa_prefijo.setFixedWidth(60)
+        self.wa_prefijo.setToolTip("Prefijo de país sin '+'. España = 34.")
+        self.wa_tras_factura = QCheckBox("Ofrecer enviar WhatsApp al emitir una factura")
+        self.wa_tras_factura.setChecked(bool(row["whatsapp_tras_factura"]))
+        wa_top = QHBoxLayout()
+        wa_top.addWidget(QLabel("Prefijo país:"))
+        wa_top.addWidget(self.wa_prefijo)
+        wa_top.addSpacing(16)
+        wa_top.addWidget(self.wa_tras_factura, 1)
+
+        self.wa_plantilla = QPlainTextEdit(row["whatsapp_plantilla"]
+                                           or whatsapp.plantilla_por_defecto())
+        self.wa_plantilla.setFixedHeight(110)
+        self.wa_plantilla.setToolTip(
+            "Marcadores: {cliente} {numero} {total} {taller} {telefono} {resenas_url}")
+        btn_wa = QPushButton("Restaurar mensaje por defecto")
+        btn_wa.clicked.connect(
+            lambda: self.wa_plantilla.setPlainText(whatsapp.plantilla_por_defecto()))
+
+        self.form.addRow(QLabel("<b>WhatsApp de agradecimiento y reseñas</b>"))
+        self.form.addRow("Enlace de reseñas (Google)", self.resenas_url)
+        self.form.addRow("WhatsApp", wa_top)
+        self.form.addRow("Mensaje", self.wa_plantilla)
+        self.form.addRow("", btn_wa)
+
         self.setMinimumWidth(620)
 
     def _elegir_logo(self) -> None:
@@ -566,6 +599,10 @@ class EmpresaDialog(_BaseDialog):
             "cond_orden": self.cond["cond_orden"].toPlainText().strip(),
             "cond_albaran": self.cond["cond_albaran"].toPlainText().strip(),
             "cond_factura": self.cond["cond_factura"].toPlainText().strip(),
+            "resenas_url": self.resenas_url.text().strip(),
+            "whatsapp_plantilla": self.wa_plantilla.toPlainText().strip(),
+            "whatsapp_tras_factura": 1 if self.wa_tras_factura.isChecked() else 0,
+            "whatsapp_prefijo": self.wa_prefijo.text().strip() or "34",
         })
 
         nuevo_iva = self.iva.value()

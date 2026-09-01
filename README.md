@@ -270,6 +270,26 @@ Luego, con un documento seleccionado: **Enviar por correo…** genera el PDF, lo
 abre una ventana con el destinatario (rellenado con el email del cliente), asunto y
 mensaje, todo editable antes de enviar.
 
+## WhatsApp de agradecimiento y reseñas de Google
+
+En **Archivo → Datos de mi taller → WhatsApp de agradecimiento y reseñas**:
+
+- **Enlace de reseñas (Google)**: el enlace corto de tu ficha de Google Empresa
+  («Perfil de empresa → Pedir reseñas»), del tipo `https://g.page/r/…`.
+- **Mensaje**: plantilla editable con marcadores `{cliente}`, `{numero}`, `{total}`,
+  `{taller}`, `{telefono}`, `{resenas_url}`.
+- **Prefijo país** (34 para España) y casilla **«Ofrecer enviar WhatsApp al emitir una
+  factura»**.
+
+Al **emitir una factura** (crearla o convertir un documento en factura), si la casilla
+está activada, el cliente tiene teléfono y hay enlace de reseñas configurado, el programa
+pregunta si quieres enviarle el WhatsApp. Al aceptar, **abre WhatsApp** (app de escritorio
+o WhatsApp Web) con el número y el mensaje ya escritos —solo hay que pulsar *Enviar*—.
+También manualmente: *Documentos → Más → Enviar WhatsApp de agradecimiento…*.
+
+> No usa la API de pago de WhatsApp Business: es un enlace `wa.me`. Necesitas WhatsApp
+> instalado o WhatsApp Web con la sesión iniciada.
+
 ## Numeración
 
 Cada tipo de documento lleva su propia serie anual correlativa:

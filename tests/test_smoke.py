@@ -532,6 +532,39 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_whatsapp_enlace_y_plantilla():
+    from urllib.parse import unquote
+
+    from taller import whatsapp as wa
+
+    assert wa.normalizar_telefono("928 149 521") == "34928149521"
+    assert wa.normalizar_telefono("638317126") == "34638317126"
+    assert wa.normalizar_telefono("+34 638 317 126") == "34638317126"
+    assert wa.normalizar_telefono("0034 638317126") == "34638317126"
+    assert wa.normalizar_telefono("638317126", prefijo="351") == "351638317126"
+    assert wa.normalizar_telefono("") is None
+    assert wa.normalizar_telefono("123") is None
+
+    db = Database()
+    repo = Repository(db)
+    repo.save_empresa({"nombre": "Taller Europa Jor", "resenas_url": "https://g.page/r/abc",
+                       "whatsapp_plantilla": "", "whatsapp_prefijo": "34"})
+    cid = repo.save_cliente({"nombre": "Ana Pérez", "telefono": "638 317 126"})
+    fid = repo.crear_documento(
+        {"tipo": domain.FACTURA, "fecha": "2026-06-01", "cliente_id": cid},
+        [{"descripcion": "x", "cantidad": 1, "precio": 100, "iva_pct": 7}])
+    doc = repo.get_documento(fid)
+    emp = repo.get_empresa()
+
+    ctx = wa.contexto_factura(doc, repo.get_cliente(cid), emp)
+    texto = wa.aplicar_plantilla(wa.plantilla_por_defecto(), ctx)
+    assert "Ana Pérez" in texto and "https://g.page/r/abc" in texto and doc["numero"] in texto
+
+    enlace = wa.construir_enlace("638 317 126", texto, emp["whatsapp_prefijo"])
+    assert enlace.startswith("https://wa.me/34638317126?text=")
+    assert "g.page/r/abc" in unquote(enlace)
+
+
 def test_numeracion_inicial_correlativa():
     db = Database()
     repo = Repository(db)
