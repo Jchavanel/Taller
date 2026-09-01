@@ -219,16 +219,19 @@ class DocumentoEditor(QDialog):
         cols[6] = f"{self.repo.get_empresa()['impuesto_nombre'] or 'IVA'} %"
         self.tabla = QTableWidget(0, len(cols))
         self.tabla.setHorizontalHeaderLabels(cols)
-        # los combos de la columna "Tipo" necesitan menos relleno que el general
+        # el combo de la columna "Tipo" y el editor de texto de las celdas necesitan
+        # menos relleno que el general, para que quepan en la altura de fila
         self.tabla.setStyleSheet(
-            "QComboBox { padding: 1px 6px; min-height: 0; border-radius: 5px; }")
+            "QComboBox { padding: 1px 6px; min-height: 0; border-radius: 5px; }"
+            "QTableWidget QLineEdit { padding: 1px 4px; border-radius: 4px; margin: 0; "
+            "min-height: 0; }")
         hdr = self.tabla.horizontalHeader()
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         for c in (1, 3, 4, 5, 6, 7):
             hdr.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self.tabla.setColumnWidth(0, 120)
-        self.tabla.verticalHeader().setDefaultSectionSize(34)
+        self.tabla.verticalHeader().setDefaultSectionSize(38)
         self.tabla.itemChanged.connect(self._on_item_changed)
         lay.addWidget(self.tabla)
         return cont
@@ -375,13 +378,16 @@ class DocumentoEditor(QDialog):
             item = QTableWidgetItem(str(val))
             if col >= 3:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            if es_canon and col in (1, 3):  # canon: código y cantidad no editables
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             if es_canon:
+                # línea de canon: bloqueada por completo. El importe se cambia en el artículo.
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item.setForeground(Qt.GlobalColor.gray)
             self.tabla.setItem(fila, col, item)
         if es_canon:
-            self.tabla.item(fila, 2).setData(Qt.ItemDataRole.UserRole, "canon")
+            desc_it = self.tabla.item(fila, 2)
+            desc_it.setData(Qt.ItemDataRole.UserRole, "canon")
+            desc_it.setToolTip("Impuesto de reciclaje ligado al artículo. Para cambiar el "
+                               "importe por unidad, edítalo en el artículo.")
             combo.setEnabled(False)
 
         self.tabla.blockSignals(False)
