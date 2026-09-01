@@ -707,8 +707,12 @@ class ArticulosTab(_TablaBase):
         filas = self.repo.list_articulos(self.busqueda.text().strip(), solo_activos=False)
         self.tabla.setRowCount(len(filas))
         for i, a in enumerate(filas):
+            canon = float(a["canon_reciclaje"] or 0) if "canon_reciclaje" in a.keys() else 0
+            desc = a["descripcion"]
+            if canon > 0:
+                desc += f"   (+ {domain.formato_moneda(canon)} reciclaje/ud)"
             self._set_fila(i, a["id"], [
-                a["codigo"], a["descripcion"],
+                a["codigo"], desc,
                 domain.TIPO_LINEA_NOMBRE.get(a["tipo"], a["tipo"]),
                 domain.formato_moneda(a["precio"]), f"{a['iva_pct']:g}",
                 domain.formato_moneda(domain.con_impuesto(a["precio"], a["iva_pct"])),

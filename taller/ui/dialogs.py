@@ -396,6 +396,24 @@ class ArticuloDialog(_BaseDialog):
         self.activo = QCheckBox("Activo")
         self.activo.setChecked(True)
 
+        # impuesto de reciclaje (canon): X € por unidad, en su propia línea
+        self.canon_check = QCheckBox("Añade impuesto de reciclaje (canon) por unidad")
+        self.canon_valor = QDoubleSpinBox()
+        self.canon_valor.setRange(0, 1000)
+        self.canon_valor.setDecimals(3)
+        self.canon_valor.setSingleStep(0.01)
+        self.canon_valor.setSuffix(" € / unidad")
+        self.canon_valor.setValue(0.06)
+        self.canon_desc = QLineEdit()
+        self.canon_desc.setPlaceholderText(f"«{domain.CANON_DESC_DEFECTO}» si se deja vacío")
+        self.canon_check.toggled.connect(self.canon_valor.setEnabled)
+        self.canon_check.toggled.connect(self.canon_desc.setEnabled)
+        self.canon_valor.setEnabled(False)
+        self.canon_desc.setEnabled(False)
+        canon_row = QHBoxLayout()
+        canon_row.addWidget(self.canon_check)
+        canon_row.addWidget(self.canon_valor)
+
         self._imp_nombre = repo.get_empresa()["impuesto_nombre"] or "IVA"
         self.lbl_con_imp = QLabel()
         self.lbl_con_imp.setStyleSheet("color:#777;")
@@ -408,6 +426,8 @@ class ArticuloDialog(_BaseDialog):
         self.form.addRow("Precio base (sin impuesto)", self.precio)
         self.form.addRow(self._imp_nombre, self.iva)
         self.form.addRow("Precio con impuesto", self.lbl_con_imp)
+        self.form.addRow("Reciclaje", canon_row)
+        self.form.addRow("Texto del canon", self.canon_desc)
         self.form.addRow("", self.activo)
 
         if articulo_id:
@@ -420,6 +440,11 @@ class ArticuloDialog(_BaseDialog):
             self.precio.setValue(row["precio"])
             self.iva.setValue(row["iva_pct"])
             self.activo.setChecked(bool(row["activo"]))
+            canon = float(row["canon_reciclaje"] or 0)
+            if canon > 0:
+                self.canon_check.setChecked(True)
+                self.canon_valor.setValue(canon)
+            self.canon_desc.setText(row["canon_descripcion"] or "")
         self._actualizar_con_imp()
 
     def _actualizar_con_imp(self) -> None:
@@ -440,6 +465,9 @@ class ArticuloDialog(_BaseDialog):
             "precio": self.precio.value(),
             "iva_pct": self.iva.value(),
             "activo": self.activo.isChecked(),
+            "canon_reciclaje": self.canon_valor.value() if self.canon_check.isChecked() else 0,
+            "canon_descripcion": self.canon_desc.text().strip()
+            if self.canon_check.isChecked() else "",
         }
         self.result_id = self.repo.save_articulo(data)
         self.accept()

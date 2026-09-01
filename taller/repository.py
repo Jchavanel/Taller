@@ -354,9 +354,14 @@ class Repository:
         return self.db.query_one("SELECT * FROM articulo WHERE id = ?", (articulo_id,))
 
     def save_articulo(self, data: dict) -> int:
-        campos = ["codigo", "descripcion", "tipo", "precio", "iva_pct", "activo"]
-        params = {c: data.get(c) for c in campos}
+        campos = ["codigo", "descripcion", "tipo", "precio", "iva_pct", "activo",
+                  "canon_reciclaje", "canon_descripcion"]
+        actual = self.get_articulo(data["id"]) if data.get("id") else None
+        params = {c: (data[c] if c in data else (actual[c] if actual else None))
+                  for c in campos}
         params["codigo"] = params.get("codigo") or ""
+        params["canon_descripcion"] = params.get("canon_descripcion") or ""
+        params["canon_reciclaje"] = float(params.get("canon_reciclaje") or 0)
         params["activo"] = 1 if data.get("activo", 1) else 0
         if data.get("id"):
             sets = ", ".join(f"{c} = :{c}" for c in campos)
@@ -364,11 +369,10 @@ class Repository:
             self.db.execute(f"UPDATE articulo SET {sets} WHERE id = :id", params)  # noqa: S608
             self.db.commit()
             return int(data["id"])
+        cols = ", ".join(campos)
+        marc = ", ".join(f":{c}" for c in campos)
         cur = self.db.execute(
-            "INSERT INTO articulo (codigo, descripcion, tipo, precio, iva_pct, activo) "
-            "VALUES (:codigo, :descripcion, :tipo, :precio, :iva_pct, :activo)",
-            params,
-        )
+            f"INSERT INTO articulo ({cols}) VALUES ({marc})", params)  # noqa: S608
         self.db.commit()
         return int(cur.lastrowid)
 
@@ -594,12 +598,14 @@ class Repository:
         for i, ln in enumerate(lineas):
             self.db.execute(
                 "INSERT INTO linea (documento_id, orden, tipo, codigo, descripcion, "
-                "cantidad, precio, descuento_pct, iva_pct) VALUES (?,?,?,?,?,?,?,?,?)",
+                "cantidad, precio, descuento_pct, iva_pct, es_canon) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     documento_id, i, ln.get("tipo", domain.LINEA_MATERIAL),
                     ln.get("codigo", ""), ln.get("descripcion", ""),
                     float(ln.get("cantidad", 0) or 0), float(ln.get("precio", 0) or 0),
                     float(ln.get("descuento_pct", 0) or 0), float(ln.get("iva_pct", 21) or 0),
+                    1 if ln.get("es_canon") else 0,
                 ),
             )
 
@@ -671,6 +677,7 @@ class Repository:
                 "tipo": ln["tipo"], "codigo": ln["codigo"], "descripcion": ln["descripcion"],
                 "cantidad": ln["cantidad"], "precio": ln["precio"],
                 "descuento_pct": ln["descuento_pct"], "iva_pct": ln["iva_pct"],
+                "es_canon": ln["es_canon"] if "es_canon" in ln.keys() else 0,
             }
             for ln in self.get_lineas(documento_id)
         ]

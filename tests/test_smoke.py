@@ -532,6 +532,44 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_articulo_canon_reciclaje():
+    db = Database()
+    repo = Repository(db)
+    aid = repo.save_articulo({
+        "codigo": "MAT-ACE", "descripcion": "Aceite motor 5W30 (litro)",
+        "tipo": "material", "precio": 9.5, "iva_pct": 7, "activo": 1,
+        "canon_reciclaje": 0.06, "canon_descripcion": "Canon SIGAUS",
+    })
+    a = repo.get_articulo(aid)
+    assert abs(a["canon_reciclaje"] - 0.06) < 1e-9
+    assert a["canon_descripcion"] == "Canon SIGAUS"
+
+    cid = repo.save_cliente({"nombre": "Aceites SL"})
+    # como monta el editor: 2 líneas, la segunda es el canon (misma cantidad)
+    fid = repo.crear_documento(
+        {"tipo": domain.FACTURA, "fecha": "2026-06-01", "cliente_id": cid},
+        [
+            {"descripcion": "Aceite motor 5W30", "cantidad": 4, "precio": 9.5, "iva_pct": 7},
+            {"descripcion": "Canon SIGAUS — Aceite motor 5W30", "cantidad": 4,
+             "precio": 0.06, "iva_pct": 7, "es_canon": True},
+        ])
+    lineas = repo.get_lineas(fid)
+    assert len(lineas) == 2
+    assert lineas[0]["es_canon"] == 0 and lineas[1]["es_canon"] == 1
+    doc = repo.get_documento(fid)
+    assert doc["base"] == 38.24                      # 4*9.5 + 4*0.06
+    assert doc["total"] == domain._r2(38.24 * 1.07)  # 40.92
+
+    # al convertir a otro documento, la marca de canon se conserva
+    p = repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "fecha": "2026-06-01", "cliente_id": cid},
+        [{"descripcion": "Aceite", "cantidad": 2, "precio": 9.5, "iva_pct": 7},
+         {"descripcion": "Canon", "cantidad": 2, "precio": 0.06, "iva_pct": 7,
+          "es_canon": True}])
+    ot = repo.convertir_documento(p, domain.ORDEN)
+    assert repo.get_lineas(ot)[1]["es_canon"] == 1
+
+
 def test_whatsapp_enlace_y_plantilla():
     from urllib.parse import unquote
 

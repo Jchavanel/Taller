@@ -327,6 +327,7 @@ class DocumentoEditor(QDialog):
                 "tipo": ln["tipo"], "codigo": ln["codigo"], "descripcion": ln["descripcion"],
                 "cantidad": ln["cantidad"], "precio": ln["precio"],
                 "descuento_pct": ln["descuento_pct"], "iva_pct": ln["iva_pct"],
+                "es_canon": ("es_canon" in ln.keys() and ln["es_canon"]),
             })
 
     # -------------------------------------------------------------- líneas
@@ -361,6 +362,7 @@ class DocumentoEditor(QDialog):
         idx = combo.findData(datos.get("tipo", domain.LINEA_MATERIAL))
         combo.setCurrentIndex(max(idx, 0))
 
+        es_canon = bool(datos.get("es_canon"))
         valores = [
             datos.get("codigo", ""),
             datos.get("descripcion", ""),
@@ -373,10 +375,21 @@ class DocumentoEditor(QDialog):
             item = QTableWidgetItem(str(val))
             if col >= 3:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            if es_canon and col in (1, 3):  # canon: código y cantidad no editables
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            if es_canon:
+                item.setForeground(Qt.GlobalColor.gray)
             self.tabla.setItem(fila, col, item)
+        if es_canon:
+            self.tabla.item(fila, 2).setData(Qt.ItemDataRole.UserRole, "canon")
+            combo.setEnabled(False)
 
         self.tabla.blockSignals(False)
         self._recalcular()
+
+    def _es_fila_canon(self, fila: int) -> bool:
+        it = self.tabla.item(fila, 2)
+        return bool(it and it.data(Qt.ItemDataRole.UserRole) == "canon")
 
     def _añadir_desde_articulo(self) -> None:
         art_id = self.combo_articulo.currentData()
@@ -387,12 +400,26 @@ class DocumentoEditor(QDialog):
             "tipo": a["tipo"], "codigo": a["codigo"], "descripcion": a["descripcion"],
             "cantidad": 1, "precio": a["precio"], "descuento_pct": 0, "iva_pct": a["iva_pct"],
         }, reutilizar_vacia=True)
+        canon = float(a["canon_reciclaje"] or 0) if "canon_reciclaje" in a.keys() else 0.0
+        if canon > 0:
+            texto = (a["canon_descripcion"] or "").strip() or domain.CANON_DESC_DEFECTO
+            self._añadir_linea({
+                "tipo": domain.LINEA_MATERIAL, "codigo": "",
+                "descripcion": f"{texto} — {a['descripcion']}",
+                "cantidad": 1, "precio": canon, "descuento_pct": 0,
+                "iva_pct": a["iva_pct"], "es_canon": True,
+            })
 
     def _eliminar_linea(self) -> None:
         fila = self.tabla.currentRow()
-        if fila >= 0:
-            self.tabla.removeRow(fila)
-            self._recalcular()
+        if fila < 0:
+            return
+        # si justo debajo hay una línea de canon ligada, se quita también
+        if (fila + 1 < self.tabla.rowCount() and self._es_fila_canon(fila + 1)
+                and not self._es_fila_canon(fila)):
+            self.tabla.removeRow(fila + 1)
+        self.tabla.removeRow(fila)
+        self._recalcular()
 
     def _on_item_changed(self, _item) -> None:
         self._recalcular()
@@ -410,11 +437,19 @@ class DocumentoEditor(QDialog):
                 "precio": _numero(self.tabla.item(fila, 4)),
                 "descuento_pct": _numero(self.tabla.item(fila, 5)),
                 "iva_pct": _numero(self.tabla.item(fila, 6)),
+                "es_canon": self._es_fila_canon(fila),
             })
         return lineas
 
     def _recalcular(self) -> None:
         self.tabla.blockSignals(True)
+        # las líneas de canon toman la cantidad de la línea de la que dependen (la de arriba)
+        for fila in range(1, self.tabla.rowCount()):
+            if self._es_fila_canon(fila) and not self._es_fila_canon(fila - 1):
+                padre = _numero(self.tabla.item(fila - 1, 3))
+                it = self.tabla.item(fila, 3)
+                if it is not None and it.text() != _fmt(padre):
+                    it.setText(_fmt(padre))
         calc = []
         for fila in range(self.tabla.rowCount()):
             lc = domain.LineaCalc(

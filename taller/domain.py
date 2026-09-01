@@ -49,6 +49,10 @@ CERRADO_ORDEN = ("finalizado", "facturado", "cobrado", "anulado")
 LINEA_MATERIAL = "material"
 LINEA_MANO_OBRA = "mano_obra"
 
+# Impuesto de reciclaje (p. ej. canon SIGAUS del aceite): X € por unidad, en su
+# propia línea del documento.
+CANON_DESC_DEFECTO = "Impuesto de reciclaje"
+
 # Tipos de intervención del historial del vehículo.
 INTERVENCION_TIPOS = {
     "mantenimiento": "Mantenimiento",

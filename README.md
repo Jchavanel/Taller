@@ -234,6 +234,13 @@ python -m taller
    *Datos de mi taller* (IGIC 7% en Canarias). Para cambiar el de los artículos que ya
    tienes: pestaña **Artículos y servicios → «Aplicar [impuesto] a todos»**, o al
    cambiar el impuesto en *Datos de mi taller* la aplicación te ofrece hacerlo.
+
+   **Impuesto de reciclaje (canon).** Un artículo (típicamente el aceite) puede llevar un
+   **canon por unidad** (p. ej. 0,06 €/litro, SIGAUS). Al marcarlo en la ficha del
+   artículo, cada vez que lo añadas a un documento aparece en **dos líneas**: el producto
+   y, debajo, el canon calculado sobre esa misma cantidad. Si cambias la cantidad del
+   producto, la del canon se ajusta sola; si quitas el producto, el canon se quita
+   también. Ambas líneas salen en el PDF.
 3. Pestaña **Clientes** → *Nuevo cliente*. En la misma ficha, con **Añadir vehículo**,
    le registras uno o varios coches sin salir del formulario.
 4. Pestaña **Documentos** → *Nuevo presupuesto*. Añade líneas desde el catálogo
