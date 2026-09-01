@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QDate, Qt
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -20,12 +22,28 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
     QVBoxLayout,
+    QWidget,
 )
+
+
+def _ajustar_a_pantalla(dialog: QDialog) -> None:
+    """Limita el tamaño del diálogo al de la pantalla y lo centra (para portátiles)."""
+    pantalla = dialog.screen() or QGuiApplication.primaryScreen()
+    if pantalla is None:
+        return
+    disp = pantalla.availableGeometry()
+    w = min(dialog.width(), int(disp.width() * 0.95))
+    h = min(dialog.height(), int(disp.height() * 0.92))
+    dialog.resize(w, h)
+    geo = dialog.frameGeometry()
+    geo.moveCenter(disp.center())
+    dialog.move(geo.topLeft())
 
 from .. import domain
 from ..repository import Repository
@@ -37,8 +55,18 @@ class _BaseDialog(QDialog):
         self.setWindowTitle(titulo)
         self.setMinimumWidth(460)
         self._layout = QVBoxLayout(self)
+
+        # el formulario va dentro de un área con scroll para que la ventana quepa
+        # en pantallas pequeñas (portátiles)
         self.form = QFormLayout()
-        self._layout.addLayout(self.form)
+        _cont = QWidget()
+        _cont.setLayout(self.form)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setWidget(_cont)
+        self._layout.addWidget(self._scroll, 1)
+
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -50,6 +78,21 @@ class _BaseDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         self._layout.addWidget(self.buttons)
         self.result_id: int | None = None
+        self._ajustado = False
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if not self._ajustado:
+            self._ajustado = True
+            inner = self._scroll.widget()
+            if inner is not None:
+                extra = sum(
+                    self._layout.itemAt(i).widget().sizeHint().height()
+                    for i in range(self._layout.count())
+                    if self._layout.itemAt(i).widget() not in (None, self._scroll))
+                deseada = inner.sizeHint().height() + extra + 56
+                self.resize(self.width(), max(self.height(), deseada))
+            _ajustar_a_pantalla(self)
 
     def _on_accept(self) -> None:
         raise NotImplementedError
@@ -77,7 +120,13 @@ class VehiculoFormDialog(QDialog):
 
         lay = QVBoxLayout(self)
         form = QFormLayout()
-        lay.addLayout(form)
+        _cont = QWidget()
+        _cont.setLayout(form)
+        _scroll = QScrollArea()
+        _scroll.setWidgetResizable(True)
+        _scroll.setFrameShape(QFrame.Shape.NoFrame)
+        _scroll.setWidget(_cont)
+        lay.addWidget(_scroll, 1)
 
         self.matricula = QLineEdit(str(datos.get("matricula", "") or ""))
         self.marca = QLineEdit(str(datos.get("marca", "") or ""))
@@ -118,6 +167,13 @@ class VehiculoFormDialog(QDialog):
         botones.accepted.connect(self._on_accept)
         botones.rejected.connect(self.reject)
         lay.addWidget(botones)
+        self._ajustado = False
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if not self._ajustado:
+            self._ajustado = True
+            _ajustar_a_pantalla(self)
 
     def _on_accept(self) -> None:
         if not (self.matricula.text().strip() or self.bastidor.text().strip()):
