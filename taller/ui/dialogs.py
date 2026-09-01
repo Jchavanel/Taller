@@ -543,6 +543,9 @@ class EmpresaDialog(_BaseDialog):
         self.provincia = QLineEdit(row["provincia"])
         self.telefono = QLineEdit(row["telefono"])
         self.email = QLineEdit(row["email"])
+        self.email_gestoria = QLineEdit(row["email_gestoria"])
+        self.email_gestoria.setPlaceholderText(
+            "para enviar las facturas del día (Calendario → Enviar a la gestoría)")
         self.iban = QLineEdit(row["iban"])
 
         self.impuesto = QComboBox()
@@ -585,6 +588,7 @@ class EmpresaDialog(_BaseDialog):
         self.form.addRow("Provincia", self.provincia)
         self.form.addRow("Teléfono", self.telefono)
         self.form.addRow("Email", self.email)
+        self.form.addRow("Email de la gestoría", self.email_gestoria)
         self.form.addRow("IBAN (para facturas)", self.iban)
         self.form.addRow("Impuesto", imp_row)
         self.form.addRow("Anticipo presupuesto/orden", self.anticipo)
@@ -673,6 +677,7 @@ class EmpresaDialog(_BaseDialog):
             "provincia": self.provincia.text().strip(),
             "telefono": self.telefono.text().strip(),
             "email": self.email.text().strip(),
+            "email_gestoria": self.email_gestoria.text().strip(),
             "iban": self.iban.text().strip(),
             "iva_defecto": self.iva.value(),
             "impuesto_nombre": self.impuesto.currentText().strip() or "IVA",

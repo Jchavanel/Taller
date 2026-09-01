@@ -1202,6 +1202,16 @@ class CalendarioTab(QWidget):
         barra.addStretch(1)
         barra.addWidget(b_hoy)
         dl.addLayout(barra)
+
+        barra2 = QHBoxLayout()
+        self.b_gestoria = QPushButton("Enviar facturas del día a la gestoría…")
+        self.b_gestoria.setProperty("primary", "true")
+        self.b_gestoria.setToolTip("Genera el PDF de cada factura de este día y las envía "
+                                   "en un solo correo a la gestoría (solo facturas).")
+        self.b_gestoria.clicked.connect(self._enviar_gestoria)
+        barra2.addWidget(self.b_gestoria)
+        barra2.addStretch(1)
+        dl.addLayout(barra2)
         split.addWidget(der)
         split.setSizes([360, 700])
 
@@ -1306,3 +1316,49 @@ class CalendarioTab(QWidget):
         r = self._doc_pdf()
         if r:
             _entregar_pdf(self, r[0])
+
+    def _enviar_gestoria(self) -> None:
+        fecha_iso = self._fecha_sel()
+        facturas = self.repo.facturas_de_fecha(fecha_iso)
+        if not facturas:
+            QMessageBox.information(self, "Facturas del día",
+                                   "Ese día no hay ninguna factura emitida.")
+            return
+
+        emp = self.repo.get_empresa()
+        fecha_txt = QDate.fromString(fecha_iso, "yyyy-MM-dd").toString("dd/MM/yyyy")
+
+        # genera el PDF de cada factura
+        rutas, resumen = [], []
+        total_dia = total_cobrado = 0.0
+        for d in facturas:
+            cli = self.repo.get_cliente(d["cliente_id"]) if d["cliente_id"] else None
+            veh = self.repo.get_vehiculo(d["vehiculo_id"]) if d["vehiculo_id"] else None
+            try:
+                rutas.append(generar_pdf(d, self.repo.get_lineas(d["id"]), cli, veh, emp))
+            except Exception as e:  # noqa: BLE001
+                _error_pdf(self, e)
+                return
+            estado = domain.ESTADO_NOMBRE.get(d["estado"], d["estado"])
+            importe = float(d["total"] or 0)
+            if d["estado"] != "anulado":
+                total_dia += importe
+            if d["estado"] == "cobrado":
+                total_cobrado += importe
+            resumen.append(f"  · {d['numero']}   {d['cliente_nombre'] or '-'}   "
+                           f"{domain.formato_moneda(importe)}   [{estado}]")
+
+        asunto = f"Facturas {fecha_txt} - {emp['nombre']}".strip(" -")
+        cuerpo = (
+            f"Facturas emitidas el {fecha_txt} por {emp['nombre']} ({emp['nif']}).\n\n"
+            + "\n".join(resumen)
+            + f"\n\nNº de facturas: {len(facturas)}"
+            + f"\nTotal facturado (sin anuladas): {domain.formato_moneda(total_dia)}"
+            + f"\nTotal cobrado: {domain.formato_moneda(total_cobrado)}\n\n"
+            "Se adjunta el PDF de cada factura.\n")
+
+        from .correo import EnviarCorreoDialog
+        EnviarCorreoDialog(
+            self.repo, self, adjuntos=rutas, asunto=asunto, cuerpo=cuerpo,
+            destinatario=(emp["email_gestoria"] or "").strip(),
+            titulo="Enviar facturas del día a la gestoría").exec()

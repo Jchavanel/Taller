@@ -19,7 +19,9 @@ y líneas) y exportar a **PDF**.
   de esta lista. El desplegable permite ver también «Todos» o un tipo concreto.
 - **Calendario** — se elige un día y se ven todos los documentos de esa fecha (sobre todo
   **facturas**), con el total facturado del día. Los días con documentos aparecen
-  resaltados (ámbar si hay factura, rosa si no). Doble clic para abrir.
+  resaltados (ámbar si hay factura, rosa si no). Doble clic para abrir. Botón **«Enviar
+  facturas del día a la gestoría…»**: genera el PDF de **cada factura** de ese día (solo
+  facturas) y las manda en **un solo correo** a la gestoría, con el desglose y los totales.
 - **Clientes**, **Vehículos**, **Artículos y servicios** — como antes.
 
 Las facturas antiguas se consultan en el **Calendario** o en el **historial del
@@ -276,6 +278,13 @@ plantillas de asunto y cuerpo (con marcadores `{numero}`, `{cliente}`, `{matricu
 Luego, con un documento seleccionado: **Enviar por correo…** genera el PDF, lo adjunta y
 abre una ventana con el destinatario (rellenado con el email del cliente), asunto y
 mensaje, todo editable antes de enviar.
+
+**Facturas del día a la gestoría.** En *Datos de mi taller* se indica el **Email de la
+gestoría**. En la pestaña **Calendario**, con un día seleccionado, el botón *Enviar
+facturas del día a la gestoría…* recopila **solo las facturas** de esa fecha, genera un
+PDF de cada una y abre el correo con todas adjuntas, el listado (número, cliente, importe,
+estado) y los totales (facturado y cobrado). Presupuestos, órdenes y albaranes **no** se
+incluyen.
 
 ## WhatsApp de agradecimiento y reseñas de Google
 

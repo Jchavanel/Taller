@@ -272,19 +272,27 @@ class _EnvioWorker(QObject):
 
 
 class EnviarCorreoDialog(QDialog):
-    """Compone y envía un documento (PDF ya generado) por correo."""
+    """Compone y envía uno o varios PDF ya generados por correo."""
 
-    def __init__(self, repo: Repository, parent, *, pdf: Path, contexto: dict,
-                 destinatario: str = "") -> None:
+    def __init__(self, repo: Repository, parent, *, adjuntos=None, pdf: Path | None = None,
+                 contexto: dict | None = None, asunto: str = "", cuerpo: str = "",
+                 destinatario: str = "", titulo: str = "Enviar por correo") -> None:
         super().__init__(parent)
         self.repo = repo
-        self.pdf = Path(pdf)
-        self.setWindowTitle("Enviar por correo")
+        if adjuntos:
+            self._adjuntos = [Path(p) for p in adjuntos]
+        elif pdf is not None:
+            self._adjuntos = [Path(pdf)]
+        else:
+            self._adjuntos = []
+        self.pdf = self._adjuntos[0] if self._adjuntos else None
+        self.setWindowTitle(titulo)
         self.setMinimumWidth(560)
         self._hilo: QThread | None = None
 
         cfg = mail.ConfigCorreo.desde_empresa(repo.get_empresa())
         self._config = cfg
+        contexto = contexto or {}
 
         lay = QVBoxLayout(self)
         form = QFormLayout()
@@ -292,14 +300,25 @@ class EnviarCorreoDialog(QDialog):
 
         self.para = QLineEdit(destinatario)
         self.para.setPlaceholderText("varias direcciones separadas por comas")
-        self.asunto = QLineEdit(mail.aplicar_plantilla(cfg.asunto, contexto))
-        self.cuerpo = QPlainTextEdit(mail.aplicar_plantilla(cfg.cuerpo, contexto))
+        self.asunto = QLineEdit(asunto or mail.aplicar_plantilla(cfg.asunto, contexto))
+        self.cuerpo = QPlainTextEdit(cuerpo or mail.aplicar_plantilla(cfg.cuerpo, contexto))
         self.cuerpo.setFixedHeight(180)
+
+        if len(self._adjuntos) == 1:
+            txt_adj = f"📎 {self._adjuntos[0].name}"
+        elif self._adjuntos:
+            txt_adj = (f"📎 {len(self._adjuntos)} ficheros: "
+                       + ", ".join(p.name for p in self._adjuntos[:6])
+                       + (" …" if len(self._adjuntos) > 6 else ""))
+        else:
+            txt_adj = "(sin adjuntos)"
+        lbl_adj = QLabel(txt_adj)
+        lbl_adj.setWordWrap(True)
 
         form.addRow("Para", self.para)
         form.addRow("Asunto", self.asunto)
         form.addRow("Mensaje", self.cuerpo)
-        form.addRow("Adjunto", QLabel(f"📎 {self.pdf.name}"))
+        form.addRow("Adjuntos", lbl_adj)
         form.addRow("Enviado desde", QLabel(cfg.remitente or "(sin configurar)"))
 
         self.estado = QLabel()
@@ -333,7 +352,7 @@ class EnviarCorreoDialog(QDialog):
         self._hilo = QThread(self)
         self._worker = _EnvioWorker(self._config, destinatarios,
                                     self.asunto.text().strip(),
-                                    self.cuerpo.toPlainText(), [self.pdf])
+                                    self.cuerpo.toPlainText(), self._adjuntos)
         self._worker.moveToThread(self._hilo)
         self._hilo.started.connect(self._worker.run)
         self._worker.terminado.connect(self._ok)
@@ -350,7 +369,7 @@ class EnviarCorreoDialog(QDialog):
     def _ok(self) -> None:
         self._cerrar_hilo()
         QMessageBox.information(self, "Correo enviado",
-                               "El documento se ha enviado correctamente.")
+                               "El correo se ha enviado correctamente.")
         self.accept()
 
     def _error(self, mensaje: str) -> None:

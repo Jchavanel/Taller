@@ -532,6 +532,27 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_facturas_de_fecha_para_gestoria():
+    db = Database()
+    repo = Repository(db)
+    repo.save_empresa({"nombre": "Taller Europa Jor", "nif": "B22438311",
+                       "email_gestoria": "gestoria@ejemplo.com"})
+    assert repo.get_empresa()["email_gestoria"] == "gestoria@ejemplo.com"
+
+    cid = repo.save_cliente({"nombre": "Cliente Día"})
+    linea = [{"descripcion": "x", "cantidad": 1, "precio": 100, "iva_pct": 7}]
+    dia = "2026-07-15"
+    f1 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": dia, "cliente_id": cid}, linea)
+    f2 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": dia, "cliente_id": cid}, linea)
+    repo.crear_documento({"tipo": domain.PRESUPUESTO, "fecha": dia, "cliente_id": cid}, linea)
+    repo.crear_documento({"tipo": domain.ALBARAN, "fecha": dia, "cliente_id": cid}, linea)
+    repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-07-16", "cliente_id": cid}, linea)
+
+    facturas = repo.facturas_de_fecha(dia)
+    assert {r["id"] for r in facturas} == {f1, f2}          # solo facturas, solo ese día
+    assert all(r["tipo"] == "factura" for r in facturas)
+
+
 def test_factura_estado_emitida_y_bloqueo():
     db = Database()
     repo = Repository(db)

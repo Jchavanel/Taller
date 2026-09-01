@@ -54,6 +54,7 @@ class Repository:
             "smtp_host", "smtp_port", "smtp_seguridad", "smtp_usuario", "smtp_password",
             "smtp_remitente", "email_asunto", "email_cuerpo",
             "resenas_url", "whatsapp_plantilla", "whatsapp_tras_factura", "whatsapp_prefijo",
+            "email_gestoria",
         ]
         actual = self.get_empresa()
         sets = ", ".join(f"{c} = :{c}" for c in campos)
@@ -434,6 +435,14 @@ class Repository:
     def documentos_de_fecha(self, fecha_iso: str) -> list[sqlite3.Row]:
         return self.db.query(
             self._SELECT_DOC + " WHERE d.fecha = ? ORDER BY d.tipo, d.secuencia",
+            (fecha_iso,),
+        )
+
+    def facturas_de_fecha(self, fecha_iso: str) -> list[sqlite3.Row]:
+        """Solo facturas emitidas ese día, ordenadas por número."""
+        return self.db.query(
+            self._SELECT_DOC + " WHERE d.tipo = 'factura' AND d.fecha = ? "
+            "ORDER BY d.secuencia",
             (fecha_iso,),
         )
 
