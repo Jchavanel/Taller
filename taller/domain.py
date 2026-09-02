@@ -43,7 +43,7 @@ ESTADOS = ["abierto", "aprobado", "rechazado", "en curso", "finalizado",
 ESTADO_NOMBRE = {
     "abierto": "Abierto", "aprobado": "Aprobado", "rechazado": "Rechazado",
     "en curso": "En curso", "finalizado": "Finalizado",
-    "facturado": "Facturada", "cobrado": "Cobrada", "anulado": "Anulada",
+    "facturado": "Emitida", "cobrado": "Cobrada", "anulado": "Anulada",
 }
 
 # Una factura, una vez guardada, está emitida: nunca queda "abierta".

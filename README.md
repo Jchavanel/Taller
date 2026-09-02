@@ -392,8 +392,11 @@ TALLER_DB=/media/usb/taller.db            taller-coches   # solo el fichero de B
 
 ## Facturas
 
-- Una factura, al guardarla, queda **emitida** (estado *Facturada*): **nunca** se queda en
-  «abierto». Su estado solo puede ser **Facturada** o **Cobrada**.
+- Una factura, al guardarla, queda **emitida** (estado **Emitida**): **nunca** se queda en
+  «abierto». Su estado solo puede ser **Emitida** o **Cobrada**.
+- Aunque una factura esté **cobrada** (bloqueada, solo lectura), sí se puede **enviar por
+  correo**, **enviar la factura por WhatsApp** y **enviar el WhatsApp de agradecimiento**
+  desde su editor (esos botones no la modifican). Solo se bloquea *Guardar*.
 
 ### Facturas de anticipo (parciales)
 

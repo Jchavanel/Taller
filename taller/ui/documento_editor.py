@@ -278,7 +278,9 @@ class DocumentoEditor(QDialog):
         self.observaciones.setFixedHeight(52)
         lay.addWidget(self.observaciones)
 
-        # fila de acciones de envío de la factura (en su propia fila para que quepan)
+        # fila de acciones de envío de la factura (en su propia fila para que quepan).
+        # Estas acciones NO modifican el documento, así que siguen disponibles aunque
+        # la factura esté cobrada / en solo lectura.
         if self.tipo == domain.FACTURA:
             fila_wa = QHBoxLayout()
             b_wa_fac = QPushButton("Enviar factura por WhatsApp…")
@@ -289,7 +291,6 @@ class DocumentoEditor(QDialog):
             fila_wa.addWidget(b_wa_gr)
             fila_wa.addStretch(1)
             lay.addLayout(fila_wa)
-            self._botones_edicion.extend([b_wa_fac, b_wa_gr])
 
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
@@ -298,13 +299,15 @@ class DocumentoEditor(QDialog):
         _save.setText("Guardar")
         _save.setProperty("primary", "true")
         botones.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
-        b_correo = botones.addButton("Guardar y enviar por correo…",
-                                     QDialogButtonBox.ButtonRole.ApplyRole)
+        b_correo = botones.addButton(
+            "Enviar por correo…" if self.solo_lectura else "Guardar y enviar por correo…",
+            QDialogButtonBox.ButtonRole.ApplyRole)
         b_correo.clicked.connect(self._guardar_y_correo)
-        b_imprimir = botones.addButton("Guardar e imprimir…",
-                                       QDialogButtonBox.ButtonRole.ApplyRole)
+        b_imprimir = botones.addButton(
+            "Imprimir…" if self.solo_lectura else "Guardar e imprimir…",
+            QDialogButtonBox.ButtonRole.ApplyRole)
         b_imprimir.clicked.connect(self._guardar_e_imprimir)
-        self._botones_edicion.extend([_save, b_correo, b_imprimir])
+        self._botones_edicion.append(_save)   # solo «Guardar» se bloquea en solo lectura
 
         botones.accepted.connect(self._guardar_y_cerrar)
         botones.rejected.connect(self.reject)
@@ -612,6 +615,23 @@ class DocumentoEditor(QDialog):
         if self._guardar():
             self.accept()
 
+    def _cerrar_tras_enviar(self) -> None:
+        # tras guardar+enviar se cierra; si la factura era de solo lectura, se deja
+        # abierta para poder hacer otro envío (correo, WhatsApp…)
+        if not self.solo_lectura:
+            self.accept()
+
+    def _preparar_para_enviar(self) -> bool:
+        """Deja el documento listo para enviar/imprimir. En solo lectura no guarda,
+        solo comprueba que exista. Devuelve True si se puede continuar."""
+        if self.solo_lectura:
+            if self.documento_id:
+                return True
+            QMessageBox.information(self, "Documento sin guardar",
+                                   "Todavía no hay un documento que enviar.")
+            return False
+        return self._guardar()
+
     def _pdf_del_documento(self):
         """Guarda y genera el PDF. Devuelve (doc, cliente, vehiculo, ruta) o None."""
         from ..pdf_export import generar_pdf
@@ -628,16 +648,16 @@ class DocumentoEditor(QDialog):
         return doc, cli, veh, ruta
 
     def _guardar_e_imprimir(self) -> None:
-        if not self._guardar():
+        if not self._preparar_para_enviar():
             return
         r = self._pdf_del_documento()
         if r is not None:
             from .impresion import previsualizar_e_imprimir
             previsualizar_e_imprimir(self, r[3], r[0]["numero"])
-        self.accept()
+        self._cerrar_tras_enviar()
 
     def _guardar_y_correo(self) -> None:
-        if not self._guardar():
+        if not self._preparar_para_enviar():
             return
         r = self._pdf_del_documento()
         if r is not None:
@@ -648,10 +668,10 @@ class DocumentoEditor(QDialog):
             EnviarCorreoDialog(
                 self.repo, self, pdf=ruta, contexto=ctx,
                 destinatario=(cli["email"] if cli and cli["email"] else "")).exec()
-        self.accept()
+        self._cerrar_tras_enviar()
 
     def _guardar_y_whatsapp(self, *, con_factura: bool) -> None:
-        if not self._guardar():
+        if not self._preparar_para_enviar():
             return
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
@@ -664,7 +684,6 @@ class DocumentoEditor(QDialog):
         if not tel:
             QMessageBox.information(self, "WhatsApp",
                                    "El cliente no tiene teléfono guardado.")
-            self.accept()
             return
 
         ctx = whatsapp.contexto_factura(doc, cli, emp)
@@ -678,7 +697,6 @@ class DocumentoEditor(QDialog):
         if not enlace:
             QMessageBox.warning(self, "WhatsApp",
                                 f"El teléfono del cliente no parece válido: {tel}")
-            self.accept()
             return
 
         if con_factura:
@@ -704,7 +722,7 @@ class DocumentoEditor(QDialog):
                 _abrir_ruta(ruta.parent)
 
         QDesktopServices.openUrl(QUrl(enlace))
-        self.accept()
+        self._cerrar_tras_enviar()
 
 
 # --------------------------------------------------------------- utilidades
