@@ -21,6 +21,7 @@ PY="${PYTHON:-python3}"
     --collect-submodules taller \
     --add-data "taller/resources:taller/resources" \
     --hidden-import reportlab.graphics.barcode \
+    --collect-data spellchecker \
     run_app.py
 
 echo

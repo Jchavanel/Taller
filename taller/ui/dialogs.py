@@ -46,8 +46,9 @@ def _ajustar_a_pantalla(dialog: QDialog) -> None:
     dialog.move(geo.topLeft())
 
 from .. import domain
-from .campos import LineaTitulo
 from ..repository import Repository
+from .campos import LineaTitulo
+from .corrector import CorrectorTextEdit
 
 
 class _BaseDialog(QDialog):
@@ -147,7 +148,7 @@ class VehiculoFormDialog(QDialog):
         self.kms.setSpecialValueText(" ")
         self.kms.setSuffix(" km")
         self.kms.setValue(int(datos.get("kms") or 0))
-        self.notas = QPlainTextEdit(str(datos.get("notas", "") or ""))
+        self.notas = CorrectorTextEdit(str(datos.get("notas", "") or ""))
         self.notas.setFixedHeight(56)
 
         form.addRow("Matrícula", self.matricula)
@@ -213,7 +214,7 @@ class ClienteDialog(_BaseDialog):
         self.provincia = LineaTitulo()
         self.telefono = QLineEdit()
         self.email = QLineEdit()
-        self.notas = QPlainTextEdit()
+        self.notas = CorrectorTextEdit()
         self.notas.setFixedHeight(56)
 
         self.form.addRow("Nombre / Razón social *", self.nombre)
@@ -387,7 +388,7 @@ class VehiculoDialog(_BaseDialog):
         self.kms.setRange(0, 9_999_999)
         self.kms.setSpecialValueText(" ")
         self.kms.setSuffix(" km")
-        self.notas = QPlainTextEdit()
+        self.notas = CorrectorTextEdit()
         self.notas.setFixedHeight(60)
 
         self.form.addRow("Cliente *", self.cliente)
@@ -775,7 +776,7 @@ class IntervencionDialog(_BaseDialog):
         self.tipo.setCurrentIndex(max(idx, 0))
 
         self.titulo = QLineEdit(str(origen.get("titulo", "") or ""))
-        self.detalle = QPlainTextEdit(str(origen.get("detalle", "") or ""))
+        self.detalle = CorrectorTextEdit(str(origen.get("detalle", "") or ""))
         self.detalle.setPlaceholderText("Trabajos realizados, piezas sustituidas, observaciones…")
         self.detalle.setFixedHeight(110)
 

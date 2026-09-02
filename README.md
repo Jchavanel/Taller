@@ -251,6 +251,9 @@ python -m taller
    cliente son obligatorios** (menos *Notas*); no deja guardar si falta alguno.
    Los campos de texto (nombre, dirección, población, marca, modelo, descripciones…)
    ponen **la inicial de cada palabra en mayúscula** automáticamente al escribir.
+   Los cuadros de texto largo (Observaciones, Notas, detalle del historial) llevan
+   **corrector ortográfico de español**: subraya en rojo lo que no reconoce y con el
+   **botón derecho** ofrece sugerencias o «Añadir al diccionario». No cambia nada solo.
 4. Pestaña **Documentos** → *Nuevo presupuesto*. Añade líneas desde el catálogo
    («Añadir artículo») o escríbelas a mano («Añadir línea libre»). Los totales y el
    desglose de IVA se calculan solos.

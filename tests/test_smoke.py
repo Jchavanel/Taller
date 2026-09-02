@@ -532,6 +532,26 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_capitalizar_y_corrector():
+    from taller.ui.campos import titular
+    assert titular("josé garcía de la cruz") == "José García De La Cruz"
+    assert titular("c/. la centrífuga, 62") == "C/. La Centrífuga, 62"
+    assert titular("BMW serie 3") == "BMW Serie 3"      # no baja lo que ya está en mayús.
+
+    try:
+        import spellchecker  # noqa: F401
+    except ImportError:
+        return
+    from taller.ui import corrector
+    assert corrector.disponible()
+    assert not corrector.esta_mal("reparación")
+    assert corrector.esta_mal("reparcion")
+    assert not corrector.esta_mal("cárter")            # término de automoción añadido
+    assert not corrector.esta_mal("ABS")               # siglas: se ignoran
+    assert "reparación" in corrector.sugerencias("reparcion")
+    assert corrector.sugerencias("Vehiculo")[0][:1].isupper()  # respeta mayúscula inicial
+
+
 def test_kms_ida_y_vuelta_vehiculo():
     db = Database()
     repo = Repository(db)

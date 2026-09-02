@@ -273,7 +273,8 @@ class DocumentoEditor(QDialog):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
 
-        self.observaciones = QPlainTextEdit()
+        from .corrector import CorrectorTextEdit
+        self.observaciones = CorrectorTextEdit()
         self.observaciones.setPlaceholderText("Observaciones…")
         self.observaciones.setFixedHeight(52)
         lay.addWidget(self.observaciones)

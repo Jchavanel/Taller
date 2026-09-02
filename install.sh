@@ -39,7 +39,7 @@ msg "Creando entorno virtual en .venv/ …"
 "$PY" -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install --upgrade pip >/dev/null
 msg "Instalando dependencias (puede tardar un par de minutos)…"
-"$APP_DIR/.venv/bin/pip" install PySide6 reportlab cryptography
+"$APP_DIR/.venv/bin/pip" install PySide6 reportlab cryptography pyspellchecker
 # keyring es opcional (guarda la contraseña del correo en el llavero del sistema)
 "$APP_DIR/.venv/bin/pip" install keyring 2>/dev/null || \
     warn "keyring no se pudo instalar; la contraseña del correo se guardará ofuscada."
