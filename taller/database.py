@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -34,6 +34,14 @@ _MIGRACIONES = {
         ("whatsapp_plantilla_doc", "TEXT NOT NULL DEFAULT ''"),
         ("verifactu_modo", "TEXT NOT NULL DEFAULT 'desactivado'"),
         ("verifactu_nif_productor", "TEXT NOT NULL DEFAULT ''"),
+        ("verifactu_cert_path", "TEXT NOT NULL DEFAULT ''"),
+        ("verifactu_cert_password", "TEXT NOT NULL DEFAULT ''"),
+    ],
+    "registro_facturacion": [
+        ("csv", "TEXT NOT NULL DEFAULT ''"),
+        ("respuesta", "TEXT NOT NULL DEFAULT ''"),
+        ("enviado_en", "TEXT"),
+        ("intentos", "INTEGER NOT NULL DEFAULT 0"),
     ],
     "documento": [
         ("fecha_entrada", "TEXT"),
@@ -92,7 +100,9 @@ CREATE TABLE IF NOT EXISTS empresa (
     email_gestoria       TEXT NOT NULL DEFAULT '',
     whatsapp_plantilla_doc TEXT NOT NULL DEFAULT '',
     verifactu_modo         TEXT NOT NULL DEFAULT 'desactivado',
-    verifactu_nif_productor TEXT NOT NULL DEFAULT ''
+    verifactu_nif_productor TEXT NOT NULL DEFAULT '',
+    verifactu_cert_path    TEXT NOT NULL DEFAULT '',
+    verifactu_cert_password TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS cliente (
@@ -214,7 +224,11 @@ CREATE TABLE IF NOT EXISTS registro_facturacion (
     software_nombre  TEXT NOT NULL DEFAULT '',
     software_version TEXT NOT NULL DEFAULT '',
     estado_envio     TEXT NOT NULL DEFAULT 'pendiente',
-    datos_json       TEXT NOT NULL DEFAULT '{}'
+    datos_json       TEXT NOT NULL DEFAULT '{}',
+    csv              TEXT NOT NULL DEFAULT '',
+    respuesta        TEXT NOT NULL DEFAULT '',
+    enviado_en       TEXT,
+    intentos         INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_registro_doc ON registro_facturacion(documento_id);
 
@@ -239,10 +253,11 @@ class Database:
 
     def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path is not None else db_path()
-        self.conn = sqlite3.connect(self.path)
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute("PRAGMA busy_timeout = 5000")
         self._init_schema()
 
     def _init_schema(self) -> None:

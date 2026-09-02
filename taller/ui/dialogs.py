@@ -676,24 +676,52 @@ class EmpresaDialog(_BaseDialog):
         self.form.addRow("", btn_wa_doc)
 
         # --- VeriFactu (facturación antifraude) ---
-        from .. import verifactu
         self.vf_modo = QComboBox()
-        self.vf_modo.addItem("Desactivado", "desactivado")
-        self.vf_modo.addItem("VERI*FACTU (huella encadenada + QR)", "verifactu")
-        _i = self.vf_modo.findData(row["verifactu_modo"] or "desactivado")
+        for etiqueta, clave in [
+            ("Desactivado", "desactivado"),
+            ("Local (huella + QR, sin enviar)", "local"),
+            ("Preproducción (envío a pruebas de la AEAT)", "preproduccion"),
+            ("Producción (envío real a la AEAT)", "produccion"),
+        ]:
+            self.vf_modo.addItem(etiqueta, clave)
+        _modo_actual = row["verifactu_modo"] or "desactivado"
+        if _modo_actual == "verifactu":            # valor de la Fase 1
+            _modo_actual = "local"
+        _i = self.vf_modo.findData(_modo_actual)
         self.vf_modo.setCurrentIndex(_i if _i >= 0 else 0)
+
         self.vf_nif = QLineEdit(row["verifactu_nif_productor"])
         self.vf_nif.setPlaceholderText("vacío = se usa el NIF/CIF del taller")
+
+        self.vf_cert = QLineEdit(row["verifactu_cert_path"])
+        self.vf_cert.setPlaceholderText("certificado del taller (.p12 / .pfx)")
+        btn_cert = QPushButton("Examinar…")
+        btn_cert.clicked.connect(self._elegir_cert)
+        cert_row = QHBoxLayout()
+        cert_row.addWidget(self.vf_cert)
+        cert_row.addWidget(btn_cert)
+        self.vf_cert_pw = QLineEdit()
+        self.vf_cert_pw.setEchoMode(QLineEdit.EchoMode.Password)
+        self.vf_cert_pw.setPlaceholderText("contraseña del certificado (vacío = sin cambios)")
+        self._vf_cert_pw_guardada = row["verifactu_cert_password"]
+        btn_probar = QPushButton("Probar conexión con la AEAT")
+        btn_probar.clicked.connect(self._probar_verifactu)
+
         aviso_vf = QLabel(
-            "<i>Fase 1: cada factura genera un registro con huella SHA-256 encadenada y "
-            "sale con el QR y la leyenda VERI*FACTU. Todavía <b>no</b> se envía a la AEAT "
-            "(eso es una fase posterior). Actívalo solo cuando tu asesor lo indique.</i>")
+            "<i>Con «Local» cada factura lleva huella encadenada + QR (no se envía nada). "
+            "«Preproducción»/«Producción» además envían los registros al servicio web de "
+            "la AEAT con el certificado del taller. <b>Actívalo solo cuando tu asesor lo "
+            "indique</b>; la conformidad con los esquemas de la AEAT hay que validarla "
+            "contra su entorno de pruebas.</i>")
         aviso_vf.setWordWrap(True)
         aviso_vf.setStyleSheet("color:#a06a00;")
 
         self.form.addRow(QLabel("<b>VeriFactu (facturación antifraude)</b>"))
         self.form.addRow("Modo", self.vf_modo)
         self.form.addRow("NIF del productor del software", self.vf_nif)
+        self.form.addRow("Certificado (.p12/.pfx)", cert_row)
+        self.form.addRow("Contraseña del certificado", self.vf_cert_pw)
+        self.form.addRow("", btn_probar)
         self.form.addRow("", aviso_vf)
 
         self.setMinimumWidth(620)
@@ -704,6 +732,36 @@ class EmpresaDialog(_BaseDialog):
         )
         if ruta:
             self.logo.setText(ruta)
+
+    def _elegir_cert(self) -> None:
+        ruta, _ = QFileDialog.getOpenFileName(
+            self, "Certificado electrónico", "", "Certificados (*.p12 *.pfx)")
+        if ruta:
+            self.vf_cert.setText(ruta)
+
+    def _pw_cert_para_guardar(self):
+        from .. import verifactu_envio
+        if self.vf_cert_pw.text():
+            return verifactu_envio.guardar_password_cert(self.vf_cert_pw.text())
+        return self._vf_cert_pw_guardada
+
+    def _probar_verifactu(self) -> None:
+        from .. import verifactu_envio
+        emp = dict(self.repo.get_empresa())
+        emp.update({
+            "verifactu_modo": self.vf_modo.currentData()
+            if self.vf_modo.currentData() in ("preproduccion", "produccion")
+            else "preproduccion",
+            "verifactu_cert_path": self.vf_cert.text().strip(),
+            "verifactu_cert_password": self._pw_cert_para_guardar(),
+        })
+        try:
+            verifactu_envio.probar_conexion(emp)
+        except Exception as e:  # noqa: BLE001
+            QMessageBox.warning(self, "VeriFactu", f"No se pudo conectar:\n\n{e}")
+            return
+        QMessageBox.information(self, "VeriFactu",
+                               "Conexión con la AEAT correcta (certificado válido).")
 
     def _restaurar_condiciones(self) -> None:
         defecto = domain.condiciones_por_defecto(self.anticipo.value() or 50)
@@ -721,17 +779,25 @@ class EmpresaDialog(_BaseDialog):
         _antes = self.repo.get_empresa()
         iva_anterior = float(_antes["iva_defecto"])
         vf_antes = _antes["verifactu_modo"] or "desactivado"
-        if (self.vf_modo.currentData() == "verifactu" and vf_antes != "verifactu"
-                and QMessageBox.question(
-                    self, "Activar VeriFactu",
-                    "Vas a activar VeriFactu. A partir de ahora, cada factura generará un "
-                    "registro con huella encadenada y saldrá con el QR y la leyenda "
-                    "VERI*FACTU.\n\nActívalo solo si tu asesor te lo ha indicado. "
-                    "¿Continuar?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                ) != QMessageBox.StandardButton.Yes):
-            self.vf_modo.setCurrentIndex(self.vf_modo.findData(vf_antes))
-            return
+        _norm = {"verifactu": "local"}
+        vf_nuevo = self.vf_modo.currentData()
+        _activos = ("local", "preproduccion", "produccion")
+        if vf_nuevo in _activos and _norm.get(vf_antes, vf_antes) != vf_nuevo:
+            if vf_nuevo in ("preproduccion", "produccion"):
+                extra = ("A partir de ahora, cada factura y cada anulación se ENVIARÁN al "
+                         + ("entorno de PRUEBAS" if vf_nuevo == "preproduccion"
+                            else "entorno REAL") + " de la AEAT con el certificado.")
+            else:
+                extra = ("Cada factura llevará huella encadenada y QR VERI*FACTU "
+                         "(no se envía nada).")
+            if QMessageBox.question(
+                self, "VeriFactu",
+                f"Vas a poner VeriFactu en modo «{self.vf_modo.currentText()}».\n\n{extra}"
+                "\n\nActívalo solo si tu asesor te lo ha indicado. ¿Continuar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            ) != QMessageBox.StandardButton.Yes:
+                self.vf_modo.setCurrentIndex(self.vf_modo.findData(_norm.get(vf_antes, vf_antes)))
+                return
         self.repo.save_empresa({
             "nombre": self.nombre.text().strip(),
             "nif": self.nif.text().strip(),
@@ -759,8 +825,11 @@ class EmpresaDialog(_BaseDialog):
             "whatsapp_prefijo": self.wa_prefijo.text().strip() or "34",
             "verifactu_modo": self.vf_modo.currentData(),
             "verifactu_nif_productor": self.vf_nif.text().strip().upper(),
+            "verifactu_cert_path": self.vf_cert.text().strip(),
+            "verifactu_cert_password": self._pw_cert_para_guardar(),
         })
-        if (self.vf_modo.currentData() or "desactivado") != vf_antes:
+        if (self.vf_modo.currentData() or "desactivado") != (
+                "local" if vf_antes == "verifactu" else vf_antes):
             from .. import verifactu
             verifactu.registrar_evento(
                 self.repo.db, "config",

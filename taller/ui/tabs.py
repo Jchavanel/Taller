@@ -944,6 +944,8 @@ class DocumentosTab(_TablaBase):
             QMessageBox.warning(self, "Anular", str(e))
             return
         self.refrescar_todo()
+        if doc["tipo"] == domain.FACTURA:
+            self._verifactu_enviar()
 
     def _pdf_del_seleccionado(self) -> tuple[Path, str] | None:
         did = self._id_seleccionado()
@@ -1089,6 +1091,11 @@ class DocumentosTab(_TablaBase):
         if nuevo_tipo == domain.FACTURA:
             self._tras_emitir_factura(nuevo_id)
 
+    def _verifactu_enviar(self) -> None:
+        w = self.window()
+        if hasattr(w, "_verifactu_enviar"):
+            w._verifactu_enviar(silencioso=True)
+
     # ---------------------------------------------------- facturas de anticipo
     def _abrir_factura_creada(self, fid: int) -> None:
         idx = self.combo_tipo.findData(domain.FACTURA)
@@ -1158,6 +1165,7 @@ class DocumentosTab(_TablaBase):
         doc = self.repo.get_documento(doc_id)
         if not doc or doc["tipo"] != domain.FACTURA:
             return
+        self._verifactu_enviar()
         emp = self.repo.get_empresa()
         if not emp["whatsapp_tras_factura"] or not (emp["resenas_url"] or "").strip():
             return

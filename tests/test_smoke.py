@@ -587,6 +587,54 @@ def test_verifactu_fase1():
         repo.save_empresa({"verifactu_modo": "desactivado"})
 
 
+def test_verifactu_fase2_xml_y_cola():
+    import xml.etree.ElementTree as ET
+
+    from taller import verifactu, verifactu_envio, verifactu_xml
+
+    db = Database()
+    repo = Repository(db)
+    try:
+        repo.save_empresa({"nombre": "Taller Europa Jor S.L.", "nif": "B22438311",
+                           "impuesto_nombre": "IGIC", "iva_defecto": 7,
+                           "verifactu_modo": "preproduccion"})
+        cid = repo.save_cliente({"nombre": "Ana", "nif": "12345678Z"})
+        f = repo.crear_documento(
+            {"tipo": domain.FACTURA, "fecha": "2026-06-01", "cliente_id": cid},
+            [{"descripcion": "Reparación", "cantidad": 1, "precio": 200, "iva_pct": 7}])
+        reg = verifactu.registro_de_documento(repo, f)
+        assert reg["estado_envio"] == "pendiente"
+
+        el = verifactu_envio._elemento_registro(repo, reg, repo.get_empresa())
+        sobre = verifactu_xml.sobre_soap(verifactu_xml.mensaje_regfactu(
+            repo.get_empresa(), [el]))
+        raiz = ET.fromstring(sobre)
+        nombres = {t.tag.rsplit("}", 1)[-1] for t in raiz.iter()}
+        for req in ("RegFactuSistemaFacturacion", "RegistroAlta", "IDFactura",
+                    "NumSerieFactura", "Desglose", "CuotaTotal", "ImporteTotal",
+                    "Encadenamiento", "SistemaInformatico", "Huella"):
+            assert req in nombres, req
+        assert b"200.00" in sobre and reg["serie_numero"].encode() in sobre
+
+        # sin certificado -> no se envía, queda en cola
+        r = verifactu_envio.enviar_pendientes(repo)
+        assert r["enviados"] == 0 and "certificado" in r["error"].lower()
+        assert verifactu.registro_de_documento(repo, f)["estado_envio"] == "pendiente"
+
+        # parseo de una respuesta de la AEAT
+        resp = (b"<x><CSV>ABC123</CSV><EstadoEnvio>Correcto</EstadoEnvio>"
+                b"<RespuestaLinea><NumSerieFactura>N1</NumSerieFactura>"
+                b"<EstadoRegistro>Correcto</EstadoRegistro></RespuestaLinea></x>")
+        d = verifactu_envio.parsear_respuesta(resp)
+        assert d["csv"] == "ABC123" and d["lineas"][0]["estado"] == "Correcto"
+
+        # contraseña del certificado (fallback b64)
+        guardado = verifactu_envio._mail.ofuscar("secreto")
+        assert verifactu_envio._leer_pw(guardado) == "secreto"
+    finally:
+        repo.save_empresa({"verifactu_modo": "desactivado"})
+
+
 def test_capitalizar_y_corrector():
     from taller.ui.campos import titular
     assert titular("josé garcía de la cruz") == "José García De La Cruz"

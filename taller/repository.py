@@ -56,6 +56,7 @@ class Repository:
             "resenas_url", "whatsapp_plantilla", "whatsapp_tras_factura", "whatsapp_prefijo",
             "email_gestoria", "whatsapp_plantilla_doc",
             "verifactu_modo", "verifactu_nif_productor",
+            "verifactu_cert_path", "verifactu_cert_password",
         ]
         actual = self.get_empresa()
         sets = ", ".join(f"{c} = :{c}" for c in campos)

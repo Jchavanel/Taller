@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, self._gestor_actu.comprobar_al_arrancar)
         QTimer.singleShot(300, self._avisar_licencia_arranque)
+        QTimer.singleShot(3000, lambda: self._verifactu_enviar(silencioso=True))
 
     # --------------------------------------------------------------- menú
     def _construir_menu(self) -> None:
@@ -127,6 +128,9 @@ class MainWindow(QMainWindow):
         act_vf = QAction("VeriFactu: estado del registro…", self)
         act_vf.triggered.connect(self._verifactu_estado)
         m_archivo.addAction(act_vf)
+        self.act_vf_envio = QAction("VeriFactu: enviar registros pendientes a la AEAT", self)
+        self.act_vf_envio.triggered.connect(lambda: self._verifactu_enviar(silencioso=False))
+        m_archivo.addAction(self.act_vf_envio)
         m_archivo.addSeparator()
         act_salir = QAction("Salir", self)
         act_salir.setShortcut("Ctrl+Q")
@@ -344,6 +348,54 @@ class MainWindow(QMainWindow):
         _abrir_fichero(data_dir())
 
     # ------------------------------------------------------------- verifactu
+    def _verifactu_enviar(self, silencioso: bool = True) -> None:
+        from .. import verifactu
+        if not verifactu.envia_a_aeat(self.repo.get_empresa()):
+            if not silencioso:
+                QMessageBox.information(
+                    self, "VeriFactu",
+                    "VeriFactu no está en modo de envío. Cámbialo a «Preproducción» o "
+                    "«Producción» en Datos de mi taller → VeriFactu.")
+            return
+        if getattr(self, "_hilo_vf", None) is not None:
+            return
+        from PySide6.QtCore import QThread, Signal
+
+        class _Hilo(QThread):
+            hecho = Signal(dict)
+
+            def run(self):  # noqa: D401
+                try:
+                    from ..database import Database
+                    from ..repository import Repository
+                    from .. import verifactu_envio
+                    self.hecho.emit(verifactu_envio.enviar_pendientes(Repository(Database())))
+                except Exception as e:  # noqa: BLE001
+                    self.hecho.emit({"enviados": 0, "error": str(e)})
+
+        self._hilo_vf = _Hilo(self)
+        self._hilo_vf.hecho.connect(lambda r: self._verifactu_enviado(r, silencioso))
+        self._hilo_vf.finished.connect(lambda: setattr(self, "_hilo_vf", None))
+        self.statusBar().showMessage("VeriFactu: enviando registros a la AEAT…", 4000)
+        self._hilo_vf.start()
+
+    def _verifactu_enviado(self, r: dict, silencioso: bool) -> None:
+        self.tab_documentos.refrescar_todo()
+        if r.get("error"):
+            self.statusBar().showMessage(f"VeriFactu: {r['error']}", 8000)
+            if not silencioso:
+                QMessageBox.warning(self, "VeriFactu", r["error"])
+            return
+        resumen = (f"Enviados {r.get('enviados', 0)}"
+                   + (f", con errores {r['con_errores']}" if r.get("con_errores") else "")
+                   + (f", rechazados {r['rechazados']}" if r.get("rechazados") else ""))
+        self.statusBar().showMessage(f"VeriFactu: {resumen}", 8000)
+        if not silencioso:
+            QMessageBox.information(
+                self, "VeriFactu",
+                f"{resumen}.\nEstado del envío: {r.get('estado_envio', '-')}"
+                + (f"\nCSV: {r['csv']}" if r.get("csv") else ""))
+
     def _verifactu_estado(self) -> None:
         from .. import verifactu
         emp = self.repo.get_empresa()

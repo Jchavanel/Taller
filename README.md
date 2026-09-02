@@ -441,14 +441,21 @@ Módulo **VeriFactu** en fase 1, **desactivado por defecto**. Se activa en
 - se lleva un **registro de eventos** (arranque, cierre, cambios, cada registro).
 - *Archivo → VeriFactu: estado del registro…* comprueba la **integridad de la cadena**.
 
-**Todavía no se envía nada a la AEAT** (el envío por servicio web con certificado es la
-fase 2/3). Canarias entra por VeriFactu, no por TicketBAI. Fecha objetivo para tenerlo
-operativo del todo: **julio de 2027** (confírmala con el asesor). Alcance y plan en
-[`docs/VERIFACTU.md`](docs/VERIFACTU.md).
+Modos (en *Datos de mi taller → VeriFactu*):
 
-> Activa VeriFactu solo cuando tu asesor te lo indique. La composición de la huella y las
-> URL siguen la Orden HAC/1177/2024, pero deben validarse contra la AEAT antes de la
-> fase 2.
+- **Local** — registro + huella + QR, sin enviar nada (para ir probando).
+- **Preproducción** — además, **envía** los registros al **entorno de pruebas** de la
+  AEAT con el **certificado del taller** (.p12/.pfx); botón *Probar conexión*.
+- **Producción** — envío real.
+
+Los registros que no se pueden enviar quedan en cola y se reintentan al arrancar o desde
+*Archivo → VeriFactu: enviar registros pendientes*.
+
+> El código del envío a la AEAT (XML + servicio web) está montado pero **hay que validarlo
+> contra los esquemas XSD oficiales y probarlo contra preproducción** antes de usarlo:
+> ver la lista en [`docs/VERIFACTU.md`](docs/VERIFACTU.md). Actívalo solo cuando tu asesor
+> lo indique. Fecha objetivo: **julio de 2027**. Canarias entra por VeriFactu, no por
+> TicketBAI.
 
 ## Estructura del proyecto
 

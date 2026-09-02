@@ -27,7 +27,13 @@ SOFTWARE_NOMBRE = "Taller de Coches"
 SOFTWARE_ID = "TALLERCOCHES"          # identificador del sistema informático
 SOFTWARE_VERSION = __version__
 
-MODOS = ("desactivado", "verifactu")
+#   desactivado  → nada
+#   local        → registro + huella encadenada + QR, sin enviar (Fase 1; antes 'verifactu')
+#   preproduccion→ además, envío al entorno de PRUEBAS de la AEAT (Fase 2)
+#   produccion   → envío al entorno REAL de la AEAT (Fase 3)
+MODOS = ("desactivado", "local", "preproduccion", "produccion")
+_MODOS_ACTIVOS = {"local", "preproduccion", "produccion", "verifactu"}
+_MODOS_ENVIO = {"preproduccion", "produccion"}
 
 # URL del servicio de cotejo de la AEAT para el QR (producción).
 _URL_COTEJO = "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR"
@@ -37,11 +43,23 @@ LEYENDA = "VERI*FACTU — Factura verificable en la sede electrónica de la AEAT
 
 
 # --------------------------------------------------------------------- utilidades
-def activo(empresa_row) -> bool:
+def _modo(empresa_row) -> str:
     try:
-        return (empresa_row["verifactu_modo"] or "desactivado") in ("verifactu",)
+        return empresa_row["verifactu_modo"] or "desactivado"
     except (KeyError, TypeError):
-        return False
+        return "desactivado"
+
+
+def activo(empresa_row) -> bool:
+    return _modo(empresa_row) in _MODOS_ACTIVOS
+
+
+def envia_a_aeat(empresa_row) -> bool:
+    return _modo(empresa_row) in _MODOS_ENVIO
+
+
+def es_preproduccion(empresa_row) -> bool:
+    return _modo(empresa_row) == "preproduccion"
 
 
 def _dec2(x) -> str:

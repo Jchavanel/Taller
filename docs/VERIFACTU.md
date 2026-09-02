@@ -1,9 +1,10 @@
 # VeriFactu — alcance y plan
 
-> **Estado: Fase 1 hecha (desactivada por defecto).** Fecha objetivo para tenerlo
-> operativo del todo: **julio de 2027**. Modalidad elegida: **VERI\*FACTU** (envío a la
-> AEAT). Falta que el asesor confirme fecha límite real y quién firma la declaración
-> responsable, y hacer las Fases 2 y 3.
+> **Estado: Fase 1 hecha + Fase 2 con el código montado (falta validar contra la AEAT).
+> Todo desactivado por defecto.** Fecha objetivo para tenerlo operativo del todo:
+> **julio de 2027**. Modalidad: **VERI\*FACTU** (envío a la AEAT). Falta: validar el XML
+> contra los XSD oficiales, probar contra preproducción con el certificado, y que el
+> asesor confirme fecha límite y declaración responsable.
 
 ## Estado actual (Fase 1, v1.23.0)
 
@@ -74,11 +75,29 @@ AEAT por servicio web en el momento de emitir la factura.
 - ✅ Registro de eventos (arranque, cierre, config, cada registro) + `verificar_cadena`.
 - ✅ *Datos de mi taller → VeriFactu* y *Archivo → VeriFactu: estado del registro…*.
 
-### Fase 2 — integración AEAT en pruebas
-- Generación del XML del registro según Orden HAC/1177/2024.
-- Cliente del servicio web contra el **entorno de preproducción** de la AEAT.
-- Cola de envío con reintentos y estado por registro.
-- Nueva dependencia para firma XML (`cryptography` + `xmlsec` o equivalente).
+### Fase 2 — integración AEAT en pruebas — 🟡 CÓDIGO HECHO, FALTA VALIDAR CONTRA LA AEAT
+- ✅ Generación del XML `RegFactuSistemaFacturacion` (alta/anulación) en
+  [`taller/verifactu_xml.py`].
+- ✅ Cliente del servicio web con **certificado de cliente** (.p12/.pfx) en
+  [`taller/verifactu_envio.py`] — conexión TLS, sin firma XAdES (modalidad VERI\*FACTU).
+- ✅ Cola: `registro_facturacion.estado_envio` (`pendiente` / `enviado` /
+  `aceptado_con_errores` / `rechazado` / `error_conexion`) + `csv`, `respuesta`,
+  `enviado_en`, `intentos` (SCHEMA 12). Envío automático al emitir/anular y al arrancar,
+  más *Archivo → VeriFactu: enviar registros pendientes*.
+- ✅ Config en *Datos de mi taller → VeriFactu*: modo (`Desactivado` / `Local` /
+  `Preproducción` / `Producción`), certificado + contraseña, **Probar conexión**.
+- ✅ Parseo de la respuesta (EstadoEnvio, CSV, estado por registro).
+
+**PENDIENTE antes de usar en preproducción:**
+1. Descargar los **XSD oficiales** de la AEAT y **validar el XML generado** campo a campo
+   (los `# VERIFICAR` de `verifactu_xml.py`): namespaces, orden de elementos,
+   obligatoriedad, códigos (`TipoFactura`, `Impuesto`=03 IGIC, `ClaveRegimen`,
+   `CalificacionOperacion`, `IdSistemaInformatico`…).
+2. Confirmar los **endpoints** (`verifactu_envio.ENDPOINT`) y si hace falta `SOAPAction`.
+3. Confirmar los campos del **`SistemaInformatico`** (nº de instalación, tipo de uso) y si
+   el software necesita estar registrado / declaración responsable presentada.
+4. Prueba real con el certificado del taller contra **preproducción** y ajustar el
+   parseo de la respuesta y los códigos de error a lo que devuelva.
 
 ### Fase 3 — producción
 - Carga y gestión del certificado electrónico (PIN, aviso de caducidad).
