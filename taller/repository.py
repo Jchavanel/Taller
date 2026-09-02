@@ -54,7 +54,7 @@ class Repository:
             "smtp_host", "smtp_port", "smtp_seguridad", "smtp_usuario", "smtp_password",
             "smtp_remitente", "email_asunto", "email_cuerpo",
             "resenas_url", "whatsapp_plantilla", "whatsapp_tras_factura", "whatsapp_prefijo",
-            "email_gestoria",
+            "email_gestoria", "whatsapp_plantilla_doc",
         ]
         actual = self.get_empresa()
         sets = ", ".join(f"{c} = :{c}" for c in campos)

@@ -630,20 +630,30 @@ class EmpresaDialog(_BaseDialog):
         wa_top.addSpacing(16)
         wa_top.addWidget(self.wa_tras_factura, 1)
 
+        _marc = "Marcadores: {cliente} {numero} {total} {taller} {telefono} {resenas_url}"
         self.wa_plantilla = QPlainTextEdit(row["whatsapp_plantilla"]
                                            or whatsapp.plantilla_por_defecto())
-        self.wa_plantilla.setFixedHeight(110)
-        self.wa_plantilla.setToolTip(
-            "Marcadores: {cliente} {numero} {total} {taller} {telefono} {resenas_url}")
+        self.wa_plantilla.setFixedHeight(96)
+        self.wa_plantilla.setToolTip(_marc)
         btn_wa = QPushButton("Restaurar mensaje por defecto")
         btn_wa.clicked.connect(
             lambda: self.wa_plantilla.setPlainText(whatsapp.plantilla_por_defecto()))
 
+        self.wa_plantilla_doc = QPlainTextEdit(row["whatsapp_plantilla_doc"]
+                                               or whatsapp.plantilla_doc_por_defecto())
+        self.wa_plantilla_doc.setFixedHeight(96)
+        self.wa_plantilla_doc.setToolTip(_marc)
+        btn_wa_doc = QPushButton("Restaurar mensaje por defecto")
+        btn_wa_doc.clicked.connect(
+            lambda: self.wa_plantilla_doc.setPlainText(whatsapp.plantilla_doc_por_defecto()))
+
         self.form.addRow(QLabel("<b>WhatsApp de agradecimiento y reseñas</b>"))
         self.form.addRow("Enlace de reseñas (Google)", self.resenas_url)
         self.form.addRow("WhatsApp", wa_top)
-        self.form.addRow("Mensaje", self.wa_plantilla)
+        self.form.addRow("Mensaje de agradecimiento", self.wa_plantilla)
         self.form.addRow("", btn_wa)
+        self.form.addRow("Mensaje al enviar la factura", self.wa_plantilla_doc)
+        self.form.addRow("", btn_wa_doc)
 
         self.setMinimumWidth(620)
 
@@ -690,6 +700,7 @@ class EmpresaDialog(_BaseDialog):
             "cond_factura": self.cond["cond_factura"].toPlainText().strip(),
             "resenas_url": self.resenas_url.text().strip(),
             "whatsapp_plantilla": self.wa_plantilla.toPlainText().strip(),
+            "whatsapp_plantilla_doc": self.wa_plantilla_doc.toPlainText().strip(),
             "whatsapp_tras_factura": 1 if self.wa_tras_factura.isChecked() else 0,
             "whatsapp_prefijo": self.wa_prefijo.text().strip() or "34",
         })

@@ -296,19 +296,26 @@ En **Archivo → Datos de mi taller → WhatsApp de agradecimiento y reseñas**:
 
 - **Enlace de reseñas (Google)**: el enlace corto de tu ficha de Google Empresa
   («Perfil de empresa → Pedir reseñas»), del tipo `https://g.page/r/…`.
-- **Mensaje**: plantilla editable con marcadores `{cliente}`, `{numero}`, `{total}`,
-  `{taller}`, `{telefono}`, `{resenas_url}`.
+- **Mensaje de agradecimiento** y **Mensaje al enviar la factura**: dos plantillas
+  editables con marcadores `{cliente}`, `{numero}`, `{total}`, `{taller}`, `{telefono}`,
+  `{resenas_url}`.
 - **Prefijo país** (34 para España) y casilla **«Ofrecer enviar WhatsApp al emitir una
   factura»**.
 
-Al **emitir una factura** (crearla o convertir un documento en factura), si la casilla
-está activada, el cliente tiene teléfono y hay enlace de reseñas configurado, el programa
-pregunta si quieres enviarle el WhatsApp. Al aceptar, **abre WhatsApp** (app de escritorio
-o WhatsApp Web) con el número y el mensaje ya escritos —solo hay que pulsar *Enviar*—.
-También manualmente: *Documentos → Más → Enviar WhatsApp de agradecimiento…*.
+En el **editor de una factura**, los botones de abajo incluyen:
+
+- **Enviar factura por WhatsApp…**: genera el PDF, abre la carpeta que lo contiene y abre
+  WhatsApp con el mensaje que informa de que se adjunta la factura + el enlace de reseñas.
+  Como WhatsApp no permite adjuntar archivos por enlace, **arrastras el PDF al chat**.
+- **Enviar WhatsApp de agradecimiento…**: solo el mensaje de agradecimiento con el enlace
+  de reseñas, sin adjunto.
+
+También, al **emitir una factura**, si la casilla está activada, se ofrece el WhatsApp de
+agradecimiento automáticamente (y en *Documentos → Más → Enviar WhatsApp…*).
 
 > No usa la API de pago de WhatsApp Business: es un enlace `wa.me`. Necesitas WhatsApp
-> instalado o WhatsApp Web con la sesión iniciada.
+> instalado o WhatsApp Web con la sesión iniciada. Por esa vía no se pueden adjuntar
+> ficheros de forma automática.
 
 ## Numeración
 

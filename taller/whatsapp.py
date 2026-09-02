@@ -19,9 +19,29 @@ PLANTILLA_DEFECTO = (
     "¡Gracias y hasta la próxima!"
 )
 
+# Mensaje cuando además se manda la factura por WhatsApp.
+PLANTILLA_DOC_DEFECTO = (
+    "Hola {cliente}, te adjuntamos la factura {numero} de {taller} que nos has "
+    "solicitado.\n\n"
+    "Si has quedado a gusto con el servicio, nos ayudarías muchísimo con una reseña en "
+    "Google (un minuto):\n{resenas_url}\n\n"
+    "¡Gracias!"
+)
+
 
 def plantilla_por_defecto() -> str:
     return PLANTILLA_DEFECTO
+
+
+def plantilla_doc_por_defecto() -> str:
+    return PLANTILLA_DOC_DEFECTO
+
+
+def preparar_envio(telefono: str, prefijo: str, plantilla: str,
+                   contexto: dict) -> tuple[str | None, str]:
+    """Devuelve (enlace wa.me | None, texto del mensaje)."""
+    texto = aplicar_plantilla(plantilla or "", contexto)
+    return construir_enlace(telefono, texto, prefijo or "34"), texto
 
 
 def normalizar_telefono(telefono: str, prefijo: str = "34") -> str | None:

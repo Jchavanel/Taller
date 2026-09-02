@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -31,6 +31,7 @@ _MIGRACIONES = {
         ("whatsapp_tras_factura", "INTEGER NOT NULL DEFAULT 1"),
         ("whatsapp_prefijo", "TEXT NOT NULL DEFAULT '34'"),
         ("email_gestoria", "TEXT NOT NULL DEFAULT ''"),
+        ("whatsapp_plantilla_doc", "TEXT NOT NULL DEFAULT ''"),
     ],
     "documento": [
         ("fecha_entrada", "TEXT"),
@@ -86,7 +87,8 @@ CREATE TABLE IF NOT EXISTS empresa (
     whatsapp_plantilla   TEXT NOT NULL DEFAULT '',
     whatsapp_tras_factura INTEGER NOT NULL DEFAULT 1,
     whatsapp_prefijo     TEXT NOT NULL DEFAULT '34',
-    email_gestoria       TEXT NOT NULL DEFAULT ''
+    email_gestoria       TEXT NOT NULL DEFAULT '',
+    whatsapp_plantilla_doc TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS cliente (

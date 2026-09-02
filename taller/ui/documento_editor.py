@@ -61,7 +61,7 @@ class DocumentoEditor(QDialog):
         if self.solo_lectura:
             titulo += "  —  SOLO LECTURA"
         self.setWindowTitle(titulo)
-        self.resize(920, 680)
+        self.resize(1040 if self.tipo == domain.FACTURA else 920, 680)
 
         root = QVBoxLayout(self)
         if bloqueo_licencia:
@@ -269,13 +269,14 @@ class DocumentoEditor(QDialog):
 
     def _build_botones(self) -> QWidget:
         cont = QWidget()
-        lay = QHBoxLayout(cont)
+        lay = QVBoxLayout(cont)
         lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
 
         self.observaciones = QPlainTextEdit()
         self.observaciones.setPlaceholderText("Observaciones…")
-        self.observaciones.setFixedHeight(56)
-        lay.addWidget(self.observaciones, 1)
+        self.observaciones.setFixedHeight(52)
+        lay.addWidget(self.observaciones)
 
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
@@ -290,9 +291,19 @@ class DocumentoEditor(QDialog):
         b_imprimir = botones.addButton("Guardar e imprimir…",
                                        QDialogButtonBox.ButtonRole.ApplyRole)
         b_imprimir.clicked.connect(self._guardar_e_imprimir)
+        self._botones_edicion.extend([_save, b_correo, b_imprimir])
+
+        if self.tipo == domain.FACTURA:
+            b_wa_fac = botones.addButton("Enviar factura por WhatsApp…",
+                                         QDialogButtonBox.ButtonRole.ApplyRole)
+            b_wa_fac.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=True))
+            b_wa_gr = botones.addButton("Enviar WhatsApp de agradecimiento…",
+                                        QDialogButtonBox.ButtonRole.ApplyRole)
+            b_wa_gr.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=False))
+            self._botones_edicion.extend([b_wa_fac, b_wa_gr])
+
         botones.accepted.connect(self._guardar_y_cerrar)
         botones.rejected.connect(self.reject)
-        self._botones_edicion.extend([_save, b_correo, b_imprimir])
         lay.addWidget(botones)
         return cont
 
@@ -633,6 +644,62 @@ class DocumentoEditor(QDialog):
             EnviarCorreoDialog(
                 self.repo, self, pdf=ruta, contexto=ctx,
                 destinatario=(cli["email"] if cli and cli["email"] else "")).exec()
+        self.accept()
+
+    def _guardar_y_whatsapp(self, *, con_factura: bool) -> None:
+        if not self._guardar():
+            return
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from .. import whatsapp
+        doc = self.repo.get_documento(self.documento_id)
+        emp = self.repo.get_empresa()
+        cli = self.repo.get_cliente(doc["cliente_id"]) if doc["cliente_id"] else None
+        tel = ((cli["telefono"] if cli else "") or "").strip()
+        if not tel:
+            QMessageBox.information(self, "WhatsApp",
+                                   "El cliente no tiene teléfono guardado.")
+            self.accept()
+            return
+
+        ctx = whatsapp.contexto_factura(doc, cli, emp)
+        if con_factura:
+            plantilla = (emp["whatsapp_plantilla_doc"] or "").strip() \
+                or whatsapp.plantilla_doc_por_defecto()
+        else:
+            plantilla = (emp["whatsapp_plantilla"] or "").strip() \
+                or whatsapp.plantilla_por_defecto()
+        enlace, _ = whatsapp.preparar_envio(tel, emp["whatsapp_prefijo"], plantilla, ctx)
+        if not enlace:
+            QMessageBox.warning(self, "WhatsApp",
+                                f"El teléfono del cliente no parece válido: {tel}")
+            self.accept()
+            return
+
+        if con_factura:
+            r = self._pdf_del_documento()
+            ruta = r[3] if r is not None else None
+            caja = QMessageBox(self)
+            caja.setIcon(QMessageBox.Icon.Information)
+            caja.setWindowTitle("Enviar factura por WhatsApp")
+            caja.setText(
+                "WhatsApp no permite adjuntar el archivo automáticamente.\n\n"
+                "Se abrirá WhatsApp con el mensaje y la carpeta de la factura; "
+                "arrastra el PDF al chat.")
+            if ruta:
+                caja.setInformativeText(f"Factura:\n{ruta}")
+            b_ok = caja.addButton("Abrir WhatsApp y carpeta",
+                                  QMessageBox.ButtonRole.AcceptRole)
+            caja.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+            caja.exec()
+            if caja.clickedButton() is not b_ok:
+                return
+            if ruta:
+                from .tabs import _abrir_ruta
+                _abrir_ruta(ruta.parent)
+
+        QDesktopServices.openUrl(QUrl(enlace))
         self.accept()
 
 
