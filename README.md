@@ -254,8 +254,9 @@ python -m taller
    - **Guardar PDF**: guarda el PDF en `datos/documentos/` y lo abre.
    - **Convertir…**: presupuesto → orden de trabajo → albarán → factura.
 
-   También desde el editor de un documento: **Guardar e imprimir…**. La ficha del
-   cliente y el historial del vehículo tienen su propio botón **Imprimir…**.
+   El editor de un documento tiene además los botones **Guardar y enviar por correo…** y
+   **Guardar e imprimir…** para hacerlo todo en un paso. La ficha del cliente y el
+   historial del vehículo tienen su propio botón **Imprimir…**.
 
 ## Envío por correo electrónico
 

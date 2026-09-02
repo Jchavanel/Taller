@@ -278,12 +278,15 @@ class DocumentoEditor(QDialog):
         _save.setText("Guardar")
         _save.setProperty("primary", "true")
         botones.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        b_correo = botones.addButton("Guardar y enviar por correo…",
+                                     QDialogButtonBox.ButtonRole.ApplyRole)
+        b_correo.clicked.connect(self._guardar_y_correo)
         b_imprimir = botones.addButton("Guardar e imprimir…",
                                        QDialogButtonBox.ButtonRole.ApplyRole)
         b_imprimir.clicked.connect(self._guardar_e_imprimir)
         botones.accepted.connect(self._guardar_y_cerrar)
         botones.rejected.connect(self.reject)
-        self._botones_edicion.extend([_save, b_imprimir])
+        self._botones_edicion.extend([_save, b_correo, b_imprimir])
         lay.addWidget(botones)
         return cont
 
@@ -568,25 +571,42 @@ class DocumentoEditor(QDialog):
         if self._guardar():
             self.accept()
 
+    def _pdf_del_documento(self):
+        """Guarda y genera el PDF. Devuelve (doc, cliente, vehiculo, ruta) o None."""
+        from ..pdf_export import generar_pdf
+        from .tabs import _error_pdf
+        doc = self.repo.get_documento(self.documento_id)
+        cli = self.repo.get_cliente(doc["cliente_id"]) if doc["cliente_id"] else None
+        veh = self.repo.get_vehiculo(doc["vehiculo_id"]) if doc["vehiculo_id"] else None
+        try:
+            ruta = generar_pdf(doc, self.repo.get_lineas(self.documento_id), cli, veh,
+                               self.repo.get_empresa())
+        except Exception as e:  # noqa: BLE001
+            _error_pdf(self, e)
+            return None
+        return doc, cli, veh, ruta
+
     def _guardar_e_imprimir(self) -> None:
         if not self._guardar():
             return
-        from ..pdf_export import generar_pdf
-        from .impresion import previsualizar_e_imprimir
-        from .tabs import _error_pdf
-        doc = self.repo.get_documento(self.documento_id)
-        try:
-            ruta = generar_pdf(
-                doc, self.repo.get_lineas(self.documento_id),
-                self.repo.get_cliente(doc["cliente_id"]) if doc["cliente_id"] else None,
-                self.repo.get_vehiculo(doc["vehiculo_id"]) if doc["vehiculo_id"] else None,
-                self.repo.get_empresa(),
-            )
-        except Exception as e:  # noqa: BLE001
-            _error_pdf(self, e)
-            self.accept()
+        r = self._pdf_del_documento()
+        if r is not None:
+            from .impresion import previsualizar_e_imprimir
+            previsualizar_e_imprimir(self, r[3], r[0]["numero"])
+        self.accept()
+
+    def _guardar_y_correo(self) -> None:
+        if not self._guardar():
             return
-        previsualizar_e_imprimir(self, ruta, doc["numero"])
+        r = self._pdf_del_documento()
+        if r is not None:
+            doc, cli, veh, ruta = r
+            from .. import email_envio as mail
+            from .correo import EnviarCorreoDialog
+            ctx = mail.contexto_documento(doc, cli, veh, self.repo.get_empresa())
+            EnviarCorreoDialog(
+                self.repo, self, pdf=ruta, contexto=ctx,
+                destinatario=(cli["email"] if cli and cli["email"] else "")).exec()
         self.accept()
 
 
