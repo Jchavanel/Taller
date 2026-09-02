@@ -485,7 +485,15 @@ class DocumentoEditor(QDialog):
         self.tabla.removeRow(fila)
         self._recalcular()
 
-    def _on_item_changed(self, _item) -> None:
+    def _on_item_changed(self, item) -> None:
+        # mayúscula inicial en cada palabra de la descripción (col. 2)
+        if item is not None and item.column() == 2 and not self._es_fila_canon(item.row()):
+            from .campos import titular
+            t = titular(item.text())
+            if t != item.text():
+                self.tabla.blockSignals(True)
+                item.setText(t)
+                self.tabla.blockSignals(False)
         self._recalcular()
 
     # ------------------------------------------------------------- cálculo

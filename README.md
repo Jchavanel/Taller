@@ -247,7 +247,10 @@ python -m taller
    producto, la del canon se ajusta sola; si quitas el producto, el canon se quita
    también. Ambas líneas salen en el PDF.
 3. Pestaña **Clientes** → *Nuevo cliente*. En la misma ficha, con **Añadir vehículo**,
-   le registras uno o varios coches sin salir del formulario.
+   le registras uno o varios coches sin salir del formulario. **Todos los campos del
+   cliente son obligatorios** (menos *Notas*); no deja guardar si falta alguno.
+   Los campos de texto (nombre, dirección, población, marca, modelo, descripciones…)
+   ponen **la inicial de cada palabra en mayúscula** automáticamente al escribir.
 4. Pestaña **Documentos** → *Nuevo presupuesto*. Añade líneas desde el catálogo
    («Añadir artículo») o escríbelas a mano («Añadir línea libre»). Los totales y el
    desglose de IVA se calculan solos.

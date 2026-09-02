@@ -46,6 +46,7 @@ def _ajustar_a_pantalla(dialog: QDialog) -> None:
     dialog.move(geo.topLeft())
 
 from .. import domain
+from .campos import LineaTitulo
 from ..repository import Repository
 
 
@@ -129,14 +130,14 @@ class VehiculoFormDialog(QDialog):
         lay.addWidget(_scroll, 1)
 
         self.matricula = QLineEdit(str(datos.get("matricula", "") or ""))
-        self.marca = QLineEdit(str(datos.get("marca", "") or ""))
-        self.modelo = QLineEdit(str(datos.get("modelo", "") or ""))
+        self.marca = LineaTitulo(str(datos.get("marca", "") or ""))
+        self.modelo = LineaTitulo(str(datos.get("modelo", "") or ""))
         self.bastidor = QLineEdit(str(datos.get("bastidor", "") or ""))
         self.anio = QSpinBox()
         self.anio.setRange(0, 2100)
         self.anio.setSpecialValueText(" ")
         self.anio.setValue(int(datos.get("anio") or 0))
-        self.color = QLineEdit(str(datos.get("color", "") or ""))
+        self.color = LineaTitulo(str(datos.get("color", "") or ""))
         self.combustible = QComboBox()
         self.combustible.setEditable(True)
         self.combustible.addItems(_COMBUSTIBLES)
@@ -204,25 +205,25 @@ class ClienteDialog(_BaseDialog):
         self._vehiculos: list[dict] = []
         self._eliminar: list[int] = []
 
-        self.nombre = QLineEdit()
+        self.nombre = LineaTitulo()
         self.nif = QLineEdit()
-        self.direccion = QLineEdit()
+        self.direccion = LineaTitulo()
         self.cp = QLineEdit()
-        self.poblacion = QLineEdit()
-        self.provincia = QLineEdit()
+        self.poblacion = LineaTitulo()
+        self.provincia = LineaTitulo()
         self.telefono = QLineEdit()
         self.email = QLineEdit()
         self.notas = QPlainTextEdit()
         self.notas.setFixedHeight(56)
 
         self.form.addRow("Nombre / Razón social *", self.nombre)
-        self.form.addRow("NIF / CIF", self.nif)
-        self.form.addRow("Dirección", self.direccion)
-        self.form.addRow("Código postal", self.cp)
-        self.form.addRow("Población", self.poblacion)
-        self.form.addRow("Provincia", self.provincia)
-        self.form.addRow("Teléfono", self.telefono)
-        self.form.addRow("Email", self.email)
+        self.form.addRow("NIF / CIF *", self.nif)
+        self.form.addRow("Dirección *", self.direccion)
+        self.form.addRow("Código postal *", self.cp)
+        self.form.addRow("Población *", self.poblacion)
+        self.form.addRow("Provincia *", self.provincia)
+        self.form.addRow("Teléfono *", self.telefono)
+        self.form.addRow("Email *", self.email)
         self.form.addRow("Notas", self.notas)
 
         self._layout.insertWidget(1, self._build_vehiculos())
@@ -319,19 +320,37 @@ class ClienteDialog(_BaseDialog):
         self._refrescar_tabla()
 
     def _on_accept(self) -> None:
-        if not self.nombre.text().strip():
-            QMessageBox.warning(self, "Falta un dato", "El nombre del cliente es obligatorio.")
+        campos = {
+            "Nombre / Razón social": self.nombre.text().strip(),
+            "NIF / CIF": self.nif.text().strip(),
+            "Dirección": self.direccion.text().strip(),
+            "Código postal": self.cp.text().strip(),
+            "Población": self.poblacion.text().strip(),
+            "Provincia": self.provincia.text().strip(),
+            "Teléfono": self.telefono.text().strip(),
+            "Email": self.email.text().strip(),
+        }
+        faltan = [k for k, v in campos.items() if not v]
+        if faltan:
+            QMessageBox.warning(
+                self, "Faltan datos",
+                "Todos los campos del cliente son obligatorios (excepto Notas).\n\n"
+                "Falta rellenar:\n  · " + "\n  · ".join(faltan))
+            return
+        if "@" not in self.email.text() or "." not in self.email.text().split("@")[-1]:
+            QMessageBox.warning(self, "Email no válido",
+                                "Revisa la dirección de correo del cliente.")
             return
         data = {
             "id": self.cliente_id,
             "nombre": self.nombre.text().strip(),
-            "nif": self.nif.text().strip(),
+            "nif": self.nif.text().strip().upper(),
             "direccion": self.direccion.text().strip(),
             "cp": self.cp.text().strip(),
             "poblacion": self.poblacion.text().strip(),
             "provincia": self.provincia.text().strip(),
             "telefono": self.telefono.text().strip(),
-            "email": self.email.text().strip(),
+            "email": self.email.text().strip().lower(),
             "notas": self.notas.toPlainText().strip(),
         }
         self.result_id = self.repo.guardar_cliente_con_vehiculos(
@@ -354,13 +373,13 @@ class VehiculoDialog(_BaseDialog):
             self.cliente.addItem(c["nombre"], c["id"])
 
         self.matricula = QLineEdit()
-        self.marca = QLineEdit()
-        self.modelo = QLineEdit()
+        self.marca = LineaTitulo()
+        self.modelo = LineaTitulo()
         self.bastidor = QLineEdit()
         self.anio = QSpinBox()
         self.anio.setRange(0, 2100)
         self.anio.setSpecialValueText(" ")
-        self.color = QLineEdit()
+        self.color = LineaTitulo()
         self.combustible = QComboBox()
         self.combustible.setEditable(True)
         self.combustible.addItems(["", "Gasolina", "Diésel", "Híbrido", "Eléctrico", "GLP", "GNC"])
@@ -436,7 +455,7 @@ class ArticuloDialog(_BaseDialog):
         self.articulo_id = articulo_id
 
         self.codigo = QLineEdit()
-        self.descripcion = QLineEdit()
+        self.descripcion = LineaTitulo()
         self.tipo = QComboBox()
         for k, v in domain.TIPO_LINEA_NOMBRE.items():
             self.tipo.addItem(v, k)
@@ -535,12 +554,12 @@ class EmpresaDialog(_BaseDialog):
         self.repo = repo
         row = repo.get_empresa()
 
-        self.nombre = QLineEdit(row["nombre"])
+        self.nombre = LineaTitulo(row["nombre"])
         self.nif = QLineEdit(row["nif"])
-        self.direccion = QLineEdit(row["direccion"])
+        self.direccion = LineaTitulo(row["direccion"])
         self.cp = QLineEdit(row["cp"])
-        self.poblacion = QLineEdit(row["poblacion"])
-        self.provincia = QLineEdit(row["provincia"])
+        self.poblacion = LineaTitulo(row["poblacion"])
+        self.provincia = LineaTitulo(row["provincia"])
         self.telefono = QLineEdit(row["telefono"])
         self.email = QLineEdit(row["email"])
         self.email_gestoria = QLineEdit(row["email_gestoria"])
