@@ -61,7 +61,7 @@ class DocumentoEditor(QDialog):
         if self.solo_lectura:
             titulo += "  —  SOLO LECTURA"
         self.setWindowTitle(titulo)
-        self.resize(1040 if self.tipo == domain.FACTURA else 920, 680)
+        self.resize(940, 700)
 
         root = QVBoxLayout(self)
         if bloqueo_licencia:
@@ -278,6 +278,19 @@ class DocumentoEditor(QDialog):
         self.observaciones.setFixedHeight(52)
         lay.addWidget(self.observaciones)
 
+        # fila de acciones de envío de la factura (en su propia fila para que quepan)
+        if self.tipo == domain.FACTURA:
+            fila_wa = QHBoxLayout()
+            b_wa_fac = QPushButton("Enviar factura por WhatsApp…")
+            b_wa_fac.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=True))
+            b_wa_gr = QPushButton("Enviar WhatsApp de agradecimiento…")
+            b_wa_gr.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=False))
+            fila_wa.addWidget(b_wa_fac)
+            fila_wa.addWidget(b_wa_gr)
+            fila_wa.addStretch(1)
+            lay.addLayout(fila_wa)
+            self._botones_edicion.extend([b_wa_fac, b_wa_gr])
+
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -292,15 +305,6 @@ class DocumentoEditor(QDialog):
                                        QDialogButtonBox.ButtonRole.ApplyRole)
         b_imprimir.clicked.connect(self._guardar_e_imprimir)
         self._botones_edicion.extend([_save, b_correo, b_imprimir])
-
-        if self.tipo == domain.FACTURA:
-            b_wa_fac = botones.addButton("Enviar factura por WhatsApp…",
-                                         QDialogButtonBox.ButtonRole.ApplyRole)
-            b_wa_fac.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=True))
-            b_wa_gr = botones.addButton("Enviar WhatsApp de agradecimiento…",
-                                        QDialogButtonBox.ButtonRole.ApplyRole)
-            b_wa_gr.clicked.connect(lambda: self._guardar_y_whatsapp(con_factura=False))
-            self._botones_edicion.extend([b_wa_fac, b_wa_gr])
 
         botones.accepted.connect(self._guardar_y_cerrar)
         botones.rejected.connect(self.reject)
