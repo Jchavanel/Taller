@@ -430,16 +430,25 @@ por el total deduciendo lo ya facturado.
 - Al crear una factura, la pestaña Documentos cambia a la vista «Factura» para que la veas
   (las facturas no aparecen en «En curso»; se consultan también en **Calendario**).
 
-## Nota fiscal
+## VeriFactu (facturación antifraude)
 
-Esta versión emite facturas en PDF con numeración correlativa y desglose de impuesto,
-pensada para uso interno del taller. **No** implementa todavía **VeriFactu** (huella
-encadenada, QR y remisión a la AEAT).
+Módulo **VeriFactu** en fase 1, **desactivado por defecto**. Se activa en
+*Datos de mi taller → VeriFactu* (`Desactivado` / `VERI*FACTU`). Con él activo:
 
-- Canarias entra por **VeriFactu**, no por TicketBAI (que es solo País Vasco / Navarra).
-- Fecha objetivo para tener el módulo listo: **julio de 2027** (confírmala con el asesor;
-  las fechas del reglamento se han ido retrasando).
-- El alcance y el plan por fases están en [`docs/VERIFACTU.md`](docs/VERIFACTU.md).
+- cada **factura** emitida genera un registro con **huella SHA-256 encadenada**;
+- **anular** una factura genera su registro de anulación encadenado;
+- la factura sale con el **código QR** de cotejo de la AEAT y la leyenda **VERI\*FACTU**;
+- se lleva un **registro de eventos** (arranque, cierre, cambios, cada registro).
+- *Archivo → VeriFactu: estado del registro…* comprueba la **integridad de la cadena**.
+
+**Todavía no se envía nada a la AEAT** (el envío por servicio web con certificado es la
+fase 2/3). Canarias entra por VeriFactu, no por TicketBAI. Fecha objetivo para tenerlo
+operativo del todo: **julio de 2027** (confírmala con el asesor). Alcance y plan en
+[`docs/VERIFACTU.md`](docs/VERIFACTU.md).
+
+> Activa VeriFactu solo cuando tu asesor te lo indique. La composición de la huella y las
+> URL siguen la Orden HAC/1177/2024, pero deben validarse contra la AEAT antes de la
+> fase 2.
 
 ## Estructura del proyecto
 

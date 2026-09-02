@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -32,6 +32,8 @@ _MIGRACIONES = {
         ("whatsapp_prefijo", "TEXT NOT NULL DEFAULT '34'"),
         ("email_gestoria", "TEXT NOT NULL DEFAULT ''"),
         ("whatsapp_plantilla_doc", "TEXT NOT NULL DEFAULT ''"),
+        ("verifactu_modo", "TEXT NOT NULL DEFAULT 'desactivado'"),
+        ("verifactu_nif_productor", "TEXT NOT NULL DEFAULT ''"),
     ],
     "documento": [
         ("fecha_entrada", "TEXT"),
@@ -88,7 +90,9 @@ CREATE TABLE IF NOT EXISTS empresa (
     whatsapp_tras_factura INTEGER NOT NULL DEFAULT 1,
     whatsapp_prefijo     TEXT NOT NULL DEFAULT '34',
     email_gestoria       TEXT NOT NULL DEFAULT '',
-    whatsapp_plantilla_doc TEXT NOT NULL DEFAULT ''
+    whatsapp_plantilla_doc TEXT NOT NULL DEFAULT '',
+    verifactu_modo         TEXT NOT NULL DEFAULT 'desactivado',
+    verifactu_nif_productor TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS cliente (
@@ -191,6 +195,35 @@ CREATE TABLE IF NOT EXISTS numeracion (
     anio      INTEGER NOT NULL,
     siguiente INTEGER NOT NULL,
     PRIMARY KEY (tipo, anio)
+);
+
+-- VeriFactu: registro de facturación con huella encadenada (RD 1007/2023).
+CREATE TABLE IF NOT EXISTS registro_facturacion (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    documento_id     INTEGER REFERENCES documento(id),
+    tipo_registro    TEXT NOT NULL,              -- 'alta' | 'anulacion'
+    nif_emisor       TEXT NOT NULL,
+    serie_numero     TEXT NOT NULL,
+    fecha_expedicion TEXT NOT NULL,              -- dd-mm-yyyy
+    tipo_factura     TEXT NOT NULL,
+    cuota_total      TEXT NOT NULL,
+    importe_total    TEXT NOT NULL,
+    huella_anterior  TEXT NOT NULL DEFAULT '',
+    huella           TEXT NOT NULL,
+    timestamp        TEXT NOT NULL,              -- ISO 8601 con huso horario
+    software_nombre  TEXT NOT NULL DEFAULT '',
+    software_version TEXT NOT NULL DEFAULT '',
+    estado_envio     TEXT NOT NULL DEFAULT 'pendiente',
+    datos_json       TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_registro_doc ON registro_facturacion(documento_id);
+
+-- VeriFactu: registro de eventos del sistema informático.
+CREATE TABLE IF NOT EXISTS evento (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha   TEXT NOT NULL,
+    tipo    TEXT NOT NULL,
+    detalle TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_vehiculo_cliente ON vehiculo(cliente_id);

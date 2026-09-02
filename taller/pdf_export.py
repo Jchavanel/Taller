@@ -18,7 +18,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from . import domain
+from . import domain, verifactu
 from .paths import documents_dir
 
 # Paleta tomada del modelo del taller (logo rojo, barras oscuras).
@@ -134,6 +134,37 @@ def _P(texto, estilo, *, multilinea: bool = False) -> Paragraph:
     if multilinea:
         s = s.replace("\n", "<br/>")
     return Paragraph(s or "&nbsp;", estilo)
+
+
+def _qr_verifactu(url: str, lado_mm: float = 24):
+    """Dibujo del código QR de cotejo de la AEAT."""
+    from reportlab.graphics.barcode.qr import QrCodeWidget
+    from reportlab.graphics.shapes import Drawing
+
+    widget = QrCodeWidget(url, barLevel="M")
+    x0, y0, x1, y1 = widget.getBounds()
+    escala = (lado_mm * mm) / (x1 - x0)
+    d = Drawing(lado_mm * mm, lado_mm * mm,
+                transform=[escala, 0, 0, escala, -x0 * escala, -y0 * escala])
+    d.add(widget)
+    return d
+
+
+def _bloque_verifactu(doc_row, empresa_row, ancho: float, st: dict) -> Table:
+    nif = (empresa_row["verifactu_nif_productor"] or empresa_row["nif"] or "").strip().upper()
+    url = verifactu.url_qr(nif, doc_row["numero"], doc_row["fecha"], doc_row["total"])
+    texto = Paragraph(
+        f"<b>{verifactu.LEYENDA}</b><br/>"
+        "Escanea el código QR para cotejar esta factura en la Agencia Tributaria.",
+        st["fp_row"])
+    t = Table([[_qr_verifactu(url), texto]], colWidths=[26 * mm, ancho - 26 * mm])
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, _BORDE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return t
 
 
 def _barra(texto: str, ancho: float, st: dict) -> Table:
@@ -486,6 +517,14 @@ def generar_pdf(doc_row, lineas_rows, cliente_row, vehiculo_row, empresa_row,
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ]))
         elems.append(fp2)
+
+    # ---- QR VeriFactu (solo facturas, si está activado) --
+    if tipo == domain.FACTURA and empresa_row is not None and verifactu.activo(empresa_row):
+        elems.append(Spacer(1, gap))
+        try:
+            elems.append(_bloque_verifactu(doc_row, empresa_row, ancho, st))
+        except Exception:  # noqa: BLE001 - un fallo del QR no debe impedir la factura
+            elems.append(Paragraph(f"<b>{verifactu.LEYENDA}</b>", st["fp_row"]))
 
     # ---- pie de página -----------------------------------
     pie_txt = (empresa_row["pie_documento"] or "").strip() if empresa_row else ""

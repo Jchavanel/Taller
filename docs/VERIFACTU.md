@@ -1,9 +1,32 @@
-# VeriFactu — alcance y plan (pendiente)
+# VeriFactu — alcance y plan
 
-> **Estado: aplazado.** Fecha objetivo para tenerlo operativo: **julio de 2027**.
-> Confirmar con el asesor fiscal: fecha límite real, modalidad y quién firma la
-> declaración responsable del fabricante. Las fechas del reglamento se han retrasado
-> varias veces.
+> **Estado: Fase 1 hecha (desactivada por defecto).** Fecha objetivo para tenerlo
+> operativo del todo: **julio de 2027**. Modalidad elegida: **VERI\*FACTU** (envío a la
+> AEAT). Falta que el asesor confirme fecha límite real y quién firma la declaración
+> responsable, y hacer las Fases 2 y 3.
+
+## Estado actual (Fase 1, v1.23.0)
+
+- Módulo [`taller/verifactu.py`](../taller/verifactu.py). Se activa en
+  *Datos de mi taller → VeriFactu* (`Desactivado` / `VERI*FACTU`). Por defecto,
+  desactivado: el programa funciona igual que antes.
+- Con VeriFactu activo:
+  - cada factura emitida genera un **registro de alta** en `registro_facturacion` con
+    **huella SHA-256 encadenada** (campo `Huella` = hash del registro anterior);
+  - anular una factura genera un **registro de anulación** encadenado;
+  - la factura sale en PDF con el **código QR** de cotejo de la AEAT y la leyenda
+    **VERI\*FACTU**;
+  - se registran **eventos** (arranque, cierre, cambio de configuración, cada registro)
+    en la tabla `evento`.
+- *Archivo → VeriFactu: estado del registro…* muestra el modo, el nº de registros, el
+  resultado de **verificar la integridad de la cadena** de huellas y los últimos eventos.
+- **Todavía NO se envía nada a la AEAT** (eso es la Fase 2).
+
+⚠️ La composición exacta de la huella (`verifactu.huella_alta` / `huella_anulacion`), los
+tipos de factura y las URL de cotejo están tomados de la Orden HAC/1177/2024, pero **hay
+que validarlos campo a campo contra la documentación vigente de la AEAT y su entorno de
+preproducción antes de la Fase 2/3**. Las funciones están aisladas para poder ajustarlas
+sin tocar el resto.
 
 ## Contexto
 
@@ -41,12 +64,15 @@ AEAT por servicio web en el momento de emitir la factura.
 
 ## Plan por fases
 
-### Fase 1 — base local (no depende de la AEAT ni del certificado)
-- Tablas `registro_facturacion` y `evento` (nueva `SCHEMA_VERSION`).
-- Cálculo de la huella con el algoritmo y orden de campos oficiales.
-- Encadenado al guardar/anular una factura (`repository.py`).
-- QR + leyendas en `pdf_export.py`.
-- Registro de eventos básico enganchado a `main_window.run()` y cierre.
+### Fase 1 — base local (no depende de la AEAT ni del certificado) — ✅ HECHA
+- ✅ Tablas `registro_facturacion` y `evento` (SCHEMA 11).
+- ✅ Cálculo de la huella (`verifactu.huella_alta` / `huella_anulacion`) — pendiente de
+  validar cada campo contra la AEAT.
+- ✅ Encadenado al crear/anular una factura (`repository.crear_documento` /
+  `anular_documento`).
+- ✅ QR + leyenda en `pdf_export.py` (solo facturas, solo con VeriFactu activo).
+- ✅ Registro de eventos (arranque, cierre, config, cada registro) + `verificar_cadena`.
+- ✅ *Datos de mi taller → VeriFactu* y *Archivo → VeriFactu: estado del registro…*.
 
 ### Fase 2 — integración AEAT en pruebas
 - Generación del XML del registro según Orden HAC/1177/2024.

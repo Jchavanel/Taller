@@ -675,6 +675,27 @@ class EmpresaDialog(_BaseDialog):
         self.form.addRow("Mensaje al enviar la factura", self.wa_plantilla_doc)
         self.form.addRow("", btn_wa_doc)
 
+        # --- VeriFactu (facturación antifraude) ---
+        from .. import verifactu
+        self.vf_modo = QComboBox()
+        self.vf_modo.addItem("Desactivado", "desactivado")
+        self.vf_modo.addItem("VERI*FACTU (huella encadenada + QR)", "verifactu")
+        _i = self.vf_modo.findData(row["verifactu_modo"] or "desactivado")
+        self.vf_modo.setCurrentIndex(_i if _i >= 0 else 0)
+        self.vf_nif = QLineEdit(row["verifactu_nif_productor"])
+        self.vf_nif.setPlaceholderText("vacío = se usa el NIF/CIF del taller")
+        aviso_vf = QLabel(
+            "<i>Fase 1: cada factura genera un registro con huella SHA-256 encadenada y "
+            "sale con el QR y la leyenda VERI*FACTU. Todavía <b>no</b> se envía a la AEAT "
+            "(eso es una fase posterior). Actívalo solo cuando tu asesor lo indique.</i>")
+        aviso_vf.setWordWrap(True)
+        aviso_vf.setStyleSheet("color:#a06a00;")
+
+        self.form.addRow(QLabel("<b>VeriFactu (facturación antifraude)</b>"))
+        self.form.addRow("Modo", self.vf_modo)
+        self.form.addRow("NIF del productor del software", self.vf_nif)
+        self.form.addRow("", aviso_vf)
+
         self.setMinimumWidth(620)
 
     def _elegir_logo(self) -> None:
@@ -697,7 +718,20 @@ class EmpresaDialog(_BaseDialog):
         if not self.nombre.text().strip():
             QMessageBox.warning(self, "Falta un dato", "El nombre del taller es obligatorio.")
             return
-        iva_anterior = float(self.repo.get_empresa()["iva_defecto"])
+        _antes = self.repo.get_empresa()
+        iva_anterior = float(_antes["iva_defecto"])
+        vf_antes = _antes["verifactu_modo"] or "desactivado"
+        if (self.vf_modo.currentData() == "verifactu" and vf_antes != "verifactu"
+                and QMessageBox.question(
+                    self, "Activar VeriFactu",
+                    "Vas a activar VeriFactu. A partir de ahora, cada factura generará un "
+                    "registro con huella encadenada y saldrá con el QR y la leyenda "
+                    "VERI*FACTU.\n\nActívalo solo si tu asesor te lo ha indicado. "
+                    "¿Continuar?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                ) != QMessageBox.StandardButton.Yes):
+            self.vf_modo.setCurrentIndex(self.vf_modo.findData(vf_antes))
+            return
         self.repo.save_empresa({
             "nombre": self.nombre.text().strip(),
             "nif": self.nif.text().strip(),
@@ -723,7 +757,14 @@ class EmpresaDialog(_BaseDialog):
             "whatsapp_plantilla_doc": self.wa_plantilla_doc.toPlainText().strip(),
             "whatsapp_tras_factura": 1 if self.wa_tras_factura.isChecked() else 0,
             "whatsapp_prefijo": self.wa_prefijo.text().strip() or "34",
+            "verifactu_modo": self.vf_modo.currentData(),
+            "verifactu_nif_productor": self.vf_nif.text().strip().upper(),
         })
+        if (self.vf_modo.currentData() or "desactivado") != vf_antes:
+            from .. import verifactu
+            verifactu.registrar_evento(
+                self.repo.db, "config",
+                f"VeriFactu: {vf_antes} → {self.vf_modo.currentData()}")
 
         nuevo_iva = self.iva.value()
         if abs(nuevo_iva - iva_anterior) > 0.001:

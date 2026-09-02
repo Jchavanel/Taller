@@ -55,6 +55,7 @@ class Repository:
             "smtp_remitente", "email_asunto", "email_cuerpo",
             "resenas_url", "whatsapp_plantilla", "whatsapp_tras_factura", "whatsapp_prefijo",
             "email_gestoria", "whatsapp_plantilla_doc",
+            "verifactu_modo", "verifactu_nif_productor",
         ]
         actual = self.get_empresa()
         sets = ", ".join(f"{c} = :{c}" for c in campos)
@@ -567,6 +568,9 @@ class Repository:
         self._reemplazar_lineas(doc_id, lineas)
         self.db.commit()
         self._sync_kms_vehiculo(cabecera.get("vehiculo_id"), cabecera.get("kms"))
+        if tipo == domain.FACTURA:
+            from . import verifactu
+            verifactu.registrar_alta(self, doc_id)
         return doc_id
 
     def _sync_kms_vehiculo(self, vehiculo_id, kms) -> None:
@@ -685,6 +689,9 @@ class Repository:
             (obs, documento_id),
         )
         self.db.commit()
+        if doc["tipo"] == domain.FACTURA:
+            from . import verifactu
+            verifactu.registrar_anulacion(self, documento_id)
 
     def documento_bloqueado(self, doc_row) -> bool:
         """True si el documento no debe editarse (factura anulada o cobrada)."""

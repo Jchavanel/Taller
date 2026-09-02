@@ -124,6 +124,9 @@ class MainWindow(QMainWindow):
         act_licencia = QAction("Licencia…", self)
         act_licencia.triggered.connect(self._abrir_licencia)
         m_archivo.addAction(act_licencia)
+        act_vf = QAction("VeriFactu: estado del registro…", self)
+        act_vf.triggered.connect(self._verifactu_estado)
+        m_archivo.addAction(act_vf)
         m_archivo.addSeparator()
         act_salir = QAction("Salir", self)
         act_salir.setShortcut("Ctrl+Q")
@@ -340,6 +343,34 @@ class MainWindow(QMainWindow):
         from .tabs import _abrir_fichero
         _abrir_fichero(data_dir())
 
+    # ------------------------------------------------------------- verifactu
+    def _verifactu_estado(self) -> None:
+        from .. import verifactu
+        emp = self.repo.get_empresa()
+        modo = emp["verifactu_modo"] or "desactivado"
+        n = self.db.query_one("SELECT COUNT(*) AS n FROM registro_facturacion")["n"]
+        lineas = [f"Modo: <b>{modo}</b>", f"Registros de facturación: <b>{n}</b>"]
+        if n:
+            problemas = verifactu.verificar_cadena(self.db)
+            if problemas:
+                lineas.append('<span style="color:#b3261e"><b>⚠ La cadena de huellas '
+                              "tiene problemas:</b></span>")
+                lineas += [f"• {p}" for p in problemas[:10]]
+            else:
+                lineas.append('<span style="color:#2e7d32">✓ La cadena de huellas es '
+                              "íntegra.</span>")
+        evs = self.db.query("SELECT fecha, tipo, detalle FROM evento ORDER BY id DESC LIMIT 8")
+        if evs:
+            lineas.append("<br>Últimos eventos:")
+            lineas += [f"<code>{e['fecha'][:19]}</code> {e['tipo']} — {e['detalle']}"
+                       for e in evs]
+        from PySide6.QtCore import Qt
+        caja = QMessageBox(self)
+        caja.setWindowTitle("VeriFactu — estado del registro")
+        caja.setTextFormat(Qt.TextFormat.RichText)
+        caja.setText("<br>".join(lineas))
+        caja.exec()
+
     # ------------------------------------------------------------- licencia
     def _abrir_licencia(self) -> None:
         from .licencia_dialog import LicenciaDialog
@@ -424,6 +455,15 @@ class MainWindow(QMainWindow):
                   self.tab_vehiculos, self.tab_articulos):
             w.refrescar()
 
+    def closeEvent(self, evento) -> None:  # noqa: N802
+        try:
+            from .. import verifactu
+            if verifactu.activo(self.repo.get_empresa()):
+                verifactu.registrar_evento(self.db, "cierre", "")
+        except Exception:  # noqa: BLE001
+            pass
+        super().closeEvent(evento)
+
 
 def run() -> int:
     import sys
@@ -459,6 +499,10 @@ def run() -> int:
 
     splash.estado("Abriendo la base de datos…")
     db = Database()
+
+    from .. import verifactu
+    if verifactu.activo(Repository(db).get_empresa()):
+        verifactu.registrar_evento(db, "arranque", f"v{__version__}")
 
     splash.estado("Copia de seguridad…")
     try:

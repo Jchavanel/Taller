@@ -532,6 +532,61 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_verifactu_fase1():
+    from taller import verifactu
+
+    db = Database()
+    repo = Repository(db)
+    linea = [{"descripcion": "Reparación", "cantidad": 1, "precio": 100, "iva_pct": 7}]
+
+    # huella determinista, 64 hex mayúsculas
+    campos = {"nif_emisor": "B1", "serie_numero": "FAC-2026-0001",
+              "fecha_expedicion": "01-06-2026", "tipo_factura": "F1",
+              "cuota_total": "7.00", "importe_total": "107.00",
+              "timestamp": "2026-06-01T12:00:00+02:00"}
+    h = verifactu.huella_alta(campos, "")
+    assert len(h) == 64 and h == h.upper()
+    assert verifactu.huella_alta(campos, "") == h
+    assert verifactu.huella_alta(campos, "X") != h        # encadena con la anterior
+
+    cid = repo.save_cliente({"nombre": "VF SL"})
+    try:
+        # desactivado: no se registra nada
+        repo.save_empresa({"nombre": "T", "nif": "B22438311",
+                           "verifactu_modo": "desactivado"})
+        f0 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-05-01",
+                                   "cliente_id": cid}, linea)
+        assert verifactu.registro_de_documento(repo, f0) is None
+
+        # activado: cada factura genera su registro encadenado
+        repo.save_empresa({"nombre": "T", "nif": "B22438311",
+                           "verifactu_modo": "verifactu"})
+        f1 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-06-01",
+                                   "cliente_id": cid}, linea)
+        f2 = repo.crear_documento({"tipo": domain.FACTURA, "fecha": "2026-06-02",
+                                   "cliente_id": cid}, linea)
+        r1 = verifactu.registro_de_documento(repo, f1)
+        r2 = verifactu.registro_de_documento(repo, f2)
+        assert r1["tipo_registro"] == "alta" and r1["huella_anterior"] == ""
+        assert r2["huella_anterior"] == r1["huella"]
+        assert verifactu.verificar_cadena(db) == []
+
+        repo.anular_documento(f1, "prueba")
+        assert db.query_one("SELECT COUNT(*) AS n FROM registro_facturacion "
+                            "WHERE tipo_registro = 'anulacion'")["n"] == 1
+        assert verifactu.verificar_cadena(db) == []
+
+        db.execute("UPDATE registro_facturacion SET importe_total = '9.99' WHERE id = ?",
+                   (r1["id"],))
+        db.commit()
+        assert verifactu.verificar_cadena(db)             # detecta la manipulación
+
+        assert verifactu.url_qr("B1", "FAC-2026-0001", "2026-06-01", 107).startswith(
+            "https://www2.agenciatributaria.gob.es/")
+    finally:
+        repo.save_empresa({"verifactu_modo": "desactivado"})
+
+
 def test_capitalizar_y_corrector():
     from taller.ui.campos import titular
     assert titular("josé garcía de la cruz") == "José García De La Cruz"
