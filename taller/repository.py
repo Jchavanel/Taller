@@ -566,7 +566,20 @@ class Repository:
         doc_id = int(cur.lastrowid)
         self._reemplazar_lineas(doc_id, lineas)
         self.db.commit()
+        self._sync_kms_vehiculo(cabecera.get("vehiculo_id"), cabecera.get("kms"))
         return doc_id
+
+    def _sync_kms_vehiculo(self, vehiculo_id, kms) -> None:
+        """Sube los km del documento a la ficha del vehículo si son mayores."""
+        if not vehiculo_id or not kms:
+            return
+        v = self.get_vehiculo(vehiculo_id)
+        if v is None:
+            return
+        if int(kms) > int(v["kms"] or 0):
+            self.db.execute("UPDATE vehiculo SET kms = ? WHERE id = ?",
+                            (int(kms), vehiculo_id))
+            self.db.commit()
 
     def actualizar_documento(self, documento_id: int, cabecera: dict, lineas: list[dict]) -> None:
         totales = self._totales_desde_dicts(lineas, cabecera.get("descuento_pct", 0.0))
@@ -607,6 +620,7 @@ class Repository:
         )
         self._reemplazar_lineas(documento_id, lineas)
         self.db.commit()
+        self._sync_kms_vehiculo(cabecera.get("vehiculo_id"), cabecera.get("kms"))
 
     def _reemplazar_lineas(self, documento_id: int, lineas: list[dict]) -> None:
         self.db.execute("DELETE FROM linea WHERE documento_id = ?", (documento_id,))

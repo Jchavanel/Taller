@@ -532,6 +532,32 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_kms_ida_y_vuelta_vehiculo():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Km SL"})
+    vid = repo.save_vehiculo({"cliente_id": cid, "matricula": "0000KM",
+                              "marca": "VW", "modelo": "Polo", "kms": 100000})
+    linea = [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}]
+
+    # al crear un documento con más km, la ficha del vehículo se actualiza
+    d1 = repo.crear_documento(
+        {"tipo": domain.ORDEN, "cliente_id": cid, "vehiculo_id": vid, "kms": 103500}, linea)
+    assert repo.get_vehiculo(vid)["kms"] == 103500
+
+    # con menos km NO baja el cuentakilómetros de la ficha
+    repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "cliente_id": cid, "vehiculo_id": vid, "kms": 90000},
+        linea)
+    assert repo.get_vehiculo(vid)["kms"] == 103500
+
+    # al editar un documento subiendo los km, también
+    repo.actualizar_documento(d1, {"tipo": domain.ORDEN, "cliente_id": cid,
+                                   "vehiculo_id": vid, "kms": 105000,
+                                   "estado": "abierto"}, linea)
+    assert repo.get_vehiculo(vid)["kms"] == 105000
+
+
 def test_factura_anticipo_y_final():
     db = Database()
     repo = Repository(db)

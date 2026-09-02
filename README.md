@@ -46,6 +46,9 @@ IBAN destacado en rojo.
 - **Textos de condiciones** editables por tipo de documento en *Datos de mi taller*
   (botón «Restaurar textos por defecto» para volver a los de fábrica).
 - Campos de la orden: **fecha de entrada** y **entrega prevista** del vehículo.
+- **Kilómetros**: al elegir el vehículo en un presupuesto, orden o factura, el campo *Kms*
+  se rellena con los de la ficha del vehículo; al guardar, si has puesto más, se
+  actualizan en la ficha (nunca bajan). El documento conserva los km que tenía ese día.
 
 Al abrir la aplicación por primera vez con la base de datos vacía, si existe
 `taller/resources/preconfig.json` se ofrecen esos datos y su logo. Se pueden cambiar en

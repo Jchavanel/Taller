@@ -42,6 +42,8 @@ class DocumentoEditor(QDialog):
         self.documento_id = documento_id
         self.saved = False
         self._botones_edicion: list = []
+        self._kms_manual = False       # el usuario ha tecleado los km a mano
+        self._kms_programatico = False  # estamos rellenando los km desde el código
 
         if documento_id:
             doc = repo.get_documento(documento_id)
@@ -128,6 +130,7 @@ class DocumentoEditor(QDialog):
         cli_row.addWidget(btn_cli_nuevo)
 
         self.vehiculo = QComboBox()
+        self.vehiculo.currentIndexChanged.connect(self._on_vehiculo_cambiado)
         btn_veh_nuevo = QPushButton("+")
         btn_veh_nuevo.setFixedWidth(30)
         btn_veh_nuevo.setToolTip("Nuevo vehículo")
@@ -144,6 +147,9 @@ class DocumentoEditor(QDialog):
         self.kms.setRange(0, 9_999_999)
         self.kms.setSpecialValueText(" ")
         self.kms.setSuffix(" km")
+        self.kms.setToolTip("Se rellena con los km de la ficha del vehículo; al guardar, "
+                            "si has puesto más, se actualizan en la ficha.")
+        self.kms.valueChanged.connect(self._kms_editado)
 
         self.estado = QComboBox()
         if self.tipo == domain.FACTURA:
@@ -303,6 +309,24 @@ class DocumentoEditor(QDialog):
         self.cliente.blockSignals(False)
         self._on_cliente_cambiado()
 
+    def _kms_editado(self, *_a) -> None:
+        if not self._kms_programatico:
+            self._kms_manual = True
+
+    def _on_vehiculo_cambiado(self, *_a) -> None:
+        # al elegir un vehículo en un documento nuevo, traer sus km de la ficha
+        if self.documento_id or self._kms_manual:
+            return
+        vid = self.vehiculo.currentData()
+        if not vid:
+            return
+        v = self.repo.get_vehiculo(vid)
+        if v is None:
+            return
+        self._kms_programatico = True
+        self.kms.setValue(int(v["kms"] or 0))
+        self._kms_programatico = False
+
     def _on_cliente_cambiado(self, *_a) -> None:
         cliente_id = self.cliente.currentData()
         actual_veh = self.vehiculo.currentData()
@@ -330,7 +354,9 @@ class DocumentoEditor(QDialog):
         idx = self.vehiculo.findData(doc["vehiculo_id"])
         if idx >= 0:
             self.vehiculo.setCurrentIndex(idx)
+        self._kms_programatico = True
         self.kms.setValue(doc["kms"] or 0)
+        self._kms_programatico = False
         _idx_estado = self.estado.findData(doc["estado"])
         self.estado.setCurrentIndex(_idx_estado if _idx_estado >= 0 else 0)
         self.forma_pago.setCurrentText(doc["forma_pago"])
