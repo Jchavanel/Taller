@@ -1,12 +1,17 @@
 """Corrector ortográfico de español para los campos de texto largo.
 
 Subraya en rojo las palabras que no están en el diccionario y ofrece sugerencias con el
-botón derecho. **No cambia nada automáticamente.** Si ``pyspellchecker`` no está
-instalado, el campo funciona como un cuadro de texto normal.
+botón derecho. **No cambia nada automáticamente.**
+
+Usa el diccionario Hunspell de español (LibreOffice / proyecto RLA, licencia triple
+GPL-3 / LGPL-3 / MPL-1.1) incluido en ``taller/resources/diccionario/`` a través de
+``spylls`` (Hunspell en Python puro). Si ``spylls`` o el diccionario no están, el campo
+funciona como un cuadro de texto normal.
 """
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -16,50 +21,54 @@ from PySide6.QtWidgets import QMenu, QPlainTextEdit
 from ..errores import log
 from ..paths import data_dir
 
+_RECURSOS = Path(__file__).resolve().parent.parent / "resources"
+_DICCIONARIO = _RECURSOS / "diccionario" / "index"
+
 _PALABRA = re.compile(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:['\-·][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*")
 
-# Términos de automoción y marcas frecuentes que el diccionario general no trae.
+# Términos de automoción que el diccionario general no trae.
 _EXTRA = {
-    "igic", "iva", "ipsi", "itv", "vin", "km", "cv", "rpm", "abs", "esp", "gps",
-    "airbag", "turbo", "diésel", "gasoil", "adblue", "antipinchazos",
-    "cárter", "retén", "silentblock", "silembloc", "rótula", "bieleta", "amortiguador",
-    "distribución", "embrague", "bujía", "bujías", "inyector", "inyectores", "colector",
-    "catalizador", "egr", "caudalímetro", "alternador", "bendix", "cardán", "homocinética",
-    "palier", "trapecio", "latiguillo", "latiguillos", "calorímetro", "termostato",
-    "anticongelante", "refrigerante", "portalámparas", "electroventilador",
+    "silentblock", "silembloc", "bieleta", "homocinética", "homocinéticas", "airbag",
+    "airbags", "adblue", "antipinchazos", "caudalímetro", "electroventilador",
+    "portalámparas", "bendix", "cardán", "egr", "turbo", "gasoil", "diésel",
+    "igic", "ipsi", "itv", "vin", "abs", "esp", "rpm",
     "bosch", "valeo", "sachs", "bilstein", "brembo", "ferodo", "monroe", "ngk", "denso",
     "mahle", "hella", "skf", "gates", "dayco", "contitech", "castrol", "repsol", "cepsa",
     "michelin", "bridgestone", "pirelli", "continental", "goodyear", "hankook",
 }
 
-_spell = None
+_dic = None
 _estado = "sin_cargar"   # "sin_cargar" | "ok" | "no"
+_personales: set[str] = set()
 
 
 def _ruta_personal() -> Path:
     return data_dir() / "diccionario_personal.txt"
 
 
+def _sin_tildes(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", texto)
+                   if unicodedata.category(c) != "Mn").lower()
+
+
 def _cargar():
-    global _spell, _estado
+    global _dic, _estado
     if _estado != "sin_cargar":
-        return _spell
+        return _dic
     try:
-        from spellchecker import SpellChecker
-        _spell = SpellChecker(language="es", distance=2)
-        _spell.word_frequency.load_words(_EXTRA)
+        from spylls.hunspell import Dictionary
+        _dic = Dictionary.from_files(str(_DICCIONARIO))
+        _estado = "ok"
         try:
-            personales = [w.strip().lower() for w in
-                          _ruta_personal().read_text(encoding="utf-8").splitlines()
-                          if w.strip()]
-            _spell.word_frequency.load_words(personales)
+            for w in _ruta_personal().read_text(encoding="utf-8").splitlines():
+                if w.strip():
+                    _personales.add(w.strip().lower())
         except OSError:
             pass
-        _estado = "ok"
     except Exception:  # noqa: BLE001
-        log().info("Corrector ortográfico no disponible (instala 'pyspellchecker').")
-        _spell, _estado = None, "no"
-    return _spell
+        log().info("Corrector ortográfico no disponible (falta 'spylls' o el diccionario).")
+        _dic, _estado = None, "no"
+    return _dic
 
 
 def disponible() -> bool:
@@ -71,51 +80,62 @@ def _es_palabra_normal(w: str) -> bool:
 
 
 def esta_mal(palabra: str) -> bool:
-    s = _cargar()
-    if s is None or not _es_palabra_normal(palabra):
+    d = _cargar()
+    if d is None or not _es_palabra_normal(palabra):
         return False
-    return palabra.lower() not in s
+    p = palabra.lower()
+    if p in _personales or p in _EXTRA:
+        return False
+    try:
+        return not d.lookup(palabra)
+    except Exception:  # noqa: BLE001
+        return False
 
 
-def sugerencias(palabra: str, n: int = 6) -> list[str]:
-    s = _cargar()
-    if s is None:
+def sugerencias(palabra: str, n: int = 7) -> list[str]:
+    d = _cargar()
+    if d is None:
         return []
-    base = palabra.lower()
-    cand = set(s.candidates(base) or [])
-    cand.discard(base)
-    ordenadas = sorted(cand, key=lambda w: s.word_frequency[w], reverse=True)[:n]
-    if palabra[:1].isupper():
-        ordenadas = [w[:1].upper() + w[1:] for w in ordenadas]
-    return ordenadas
+    try:
+        brutas = list(d.suggest(palabra))
+    except Exception:  # noqa: BLE001
+        brutas = []
+    # las que solo cambian tildes/mayúsculas van primero (p. ej. camion -> camión)
+    base = _sin_tildes(palabra)
+    orden = {w: i for i, w in enumerate(brutas)}
+    brutas.sort(key=lambda w: (_sin_tildes(w) != base, orden[w]))
+    vistos, salida = set(), []
+    for w in brutas:
+        if w.lower() != palabra.lower() and w.lower() not in vistos:
+            vistos.add(w.lower())
+            salida.append(w)
+        if len(salida) >= n:
+            break
+    return salida
 
 
 def anadir_personal(palabra: str) -> None:
     palabra = palabra.strip().lower()
     if not palabra:
         return
+    _personales.add(palabra)
     try:
         with open(_ruta_personal(), "a", encoding="utf-8") as f:
             f.write(palabra + "\n")
     except OSError:
         pass
-    s = _cargar()
-    if s is not None:
-        s.word_frequency.add(palabra)
 
 
 class _Resaltador(QSyntaxHighlighter):
     def highlightBlock(self, texto: str) -> None:  # noqa: N802
-        s = _cargar()
-        if s is None:
+        if _cargar() is None:
             return
         fmt = QTextCharFormat()
         fmt.setUnderlineColor(Qt.GlobalColor.red)
         fmt.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
         for m in _PALABRA.finditer(texto):
-            w = m.group()
-            if _es_palabra_normal(w) and w.lower() not in s:
-                self.setFormat(m.start(), len(w), fmt)
+            if esta_mal(m.group()):
+                self.setFormat(m.start(), len(m.group()), fmt)
 
 
 class CorrectorTextEdit(QPlainTextEdit):

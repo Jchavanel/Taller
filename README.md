@@ -252,8 +252,10 @@ python -m taller
    Los campos de texto (nombre, dirección, población, marca, modelo, descripciones…)
    ponen **la inicial de cada palabra en mayúscula** automáticamente al escribir.
    Los cuadros de texto largo (Observaciones, Notas, detalle del historial) llevan
-   **corrector ortográfico de español**: subraya en rojo lo que no reconoce y con el
-   **botón derecho** ofrece sugerencias o «Añadir al diccionario». No cambia nada solo.
+   **corrector ortográfico de español**: subraya en rojo lo que no reconoce (palabras mal
+   escritas o **sin tilde**: *camion* → sugiere *camión*) y con el **botón derecho** ofrece
+   correcciones o «Añadir al diccionario». No cambia nada solo. Usa el diccionario de
+   español de LibreOffice/RLA (incluido) mediante `spylls`.
 4. Pestaña **Documentos** → *Nuevo presupuesto*. Añade líneas desde el catálogo
    («Añadir artículo») o escríbelas a mano («Añadir línea libre»). Los totales y el
    desglose de IVA se calculan solos.
@@ -472,3 +474,10 @@ python tests/test_smoke.py
 Comprueban cálculos de impuesto, numeración, el flujo presupuesto→factura, la ficha de
 cliente, el historial y la generación de los PDF. La comprobación del *texto* dentro del
 PDF necesita `pymupdf` (opcional: `pip install pymupdf`); si no está, esa parte se omite.
+
+## Componentes de terceros
+
+El corrector ortográfico usa el **diccionario de español de LibreOffice / proyecto RLA**
+(Santiago Bosio y colaboradores), incluido en `taller/resources/diccionario/` bajo triple
+licencia GNU GPL-3.0+, GNU LGPL-3.0+ o MPL-1.1+ (ver el fichero `license` de esa carpeta),
+leído con la biblioteca `spylls` (Hunspell en Python puro, MIT).
