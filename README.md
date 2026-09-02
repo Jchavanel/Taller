@@ -383,6 +383,21 @@ TALLER_DB=/media/usb/taller.db            taller-coches   # solo el fichero de B
 
 - Una factura, al guardarla, queda **emitida** (estado *Facturada*): **nunca** se queda en
   «abierto». Su estado solo puede ser **Facturada** o **Cobrada**.
+
+### Facturas de anticipo (parciales)
+
+Cuando el taller cobra un anticipo antes de empezar (p. ej. el 50 %), la ley obliga a
+emitir una **factura de ese anticipo con su impuesto** y, al terminar, la **factura final**
+por el total deduciendo lo ya facturado.
+
+- Sobre un **presupuesto**: *Documentos → Más → Factura de anticipo…* → indicas el % → se
+  emite una factura por ese porcentaje de cada tipo impositivo (IGIC incluido).
+- Sobre esa **factura de anticipo**: *Documentos → Más → Factura final del anticipo…* →
+  se emite la factura final con **todo el trabajo del presupuesto** y una línea negativa
+  que **deduce el anticipo ya facturado**; el cliente paga el resto. Las dos facturas
+  suman exactamente el total del presupuesto, con los impuestos correctos.
+- Ambas son facturas correlativas normales; en la lista se marcan como «· anticipo» / «·
+  final» y llevan una nota automática en observaciones.
 - Al marcarla **Cobrada** y guardar (pide confirmación), la factura queda **bloqueada**:
   se abre en **solo lectura** y no se puede modificar. Para corregirla se emite una
   factura rectificativa.

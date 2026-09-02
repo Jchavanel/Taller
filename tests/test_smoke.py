@@ -532,6 +532,72 @@ def test_generar_manifiesto_latest_json():
     assert g.sha256(paquete) == m["fuente"]["sha256"]
 
 
+def test_factura_anticipo_y_final():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Anticipos SL"})
+
+    # presupuesto de 200 base + 14 IGIC = 214
+    pid = repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "fecha": "2026-05-01", "cliente_id": cid},
+        [{"descripcion": "Reparación", "cantidad": 1, "precio": 200, "iva_pct": 7}])
+    pre = repo.get_documento(pid)
+    assert (pre["base"], pre["cuota_iva"], pre["total"]) == (200.0, 14.0, 214.0)
+
+    # factura de anticipo del 50%
+    a_id = repo.crear_factura_anticipo(pid, 50)
+    ant = repo.get_documento(a_id)
+    assert ant["tipo"] == "factura" and ant["factura_tipo"] == "anticipo"
+    assert ant["anticipo_pct"] == 50.0
+    assert (ant["base"], ant["cuota_iva"], ant["total"]) == (100.0, 7.0, 107.0)
+    assert ant["numero"].startswith("FAC-2026-")
+
+    # no se puede facturar dos veces el anticipo del mismo presupuesto
+    try:
+        repo.crear_factura_anticipo(pid, 30)
+        assert False
+    except ValueError:
+        pass
+
+    # factura final: todo el trabajo menos el anticipo ya facturado
+    f_id = repo.crear_factura_final(a_id)
+    fin = repo.get_documento(f_id)
+    assert fin["factura_tipo"] == "final"
+    assert (fin["base"], fin["cuota_iva"], fin["total"]) == (100.0, 7.0, 107.0)
+    # las dos facturas suman el total del presupuesto
+    assert round(ant["total"] + fin["total"], 2) == pre["total"]
+    # la final deja constancia del anticipo deducido
+    lineas_fin = repo.get_lineas(f_id)
+    assert any(l["precio"] < 0 and ant["numero"] in l["descripcion"] for l in lineas_fin)
+
+    try:
+        repo.crear_factura_final(a_id)   # ya tiene su final
+        assert False
+    except ValueError:
+        pass
+    try:
+        repo.crear_factura_anticipo(f_id, 50)   # no es un presupuesto
+        assert False
+    except ValueError:
+        pass
+
+
+def test_factura_anticipo_con_descuento_general():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Dto SL"})
+    pid = repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "fecha": "2026-05-01", "cliente_id": cid,
+         "descuento_pct": 10},
+        [{"descripcion": "Trabajo", "cantidad": 1, "precio": 200, "iva_pct": 7}])
+    pre = repo.get_documento(pid)                       # base 180, cuota 12.6, total 192.6
+    a = repo.get_documento(repo.crear_factura_anticipo(pid, 50))
+    f = repo.get_documento(repo.crear_factura_final(
+        repo.db.query_one("SELECT id FROM documento WHERE origen_id=? AND factura_tipo='anticipo'",
+                          (pid,))["id"]))
+    assert round(a["total"] + f["total"], 2) == pre["total"]
+
+
 def test_facturas_de_fecha_para_gestoria():
     db = Database()
     repo = Repository(db)

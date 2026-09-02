@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -36,6 +36,8 @@ _MIGRACIONES = {
         ("fecha_entrada", "TEXT"),
         ("entrega_prevista", "TEXT"),
         ("validez_dias", "INTEGER"),
+        ("factura_tipo", "TEXT NOT NULL DEFAULT 'completa'"),
+        ("anticipo_pct", "REAL"),
     ],
     "articulo": [
         ("canon_reciclaje", "REAL NOT NULL DEFAULT 0"),
@@ -145,6 +147,8 @@ CREATE TABLE IF NOT EXISTS documento (
     fecha_entrada    TEXT,
     entrega_prevista TEXT,
     validez_dias     INTEGER,
+    factura_tipo     TEXT NOT NULL DEFAULT 'completa',
+    anticipo_pct     REAL,
     base          REAL NOT NULL DEFAULT 0,
     cuota_iva     REAL NOT NULL DEFAULT 0,
     total         REAL NOT NULL DEFAULT 0,

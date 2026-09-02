@@ -55,6 +55,34 @@ def normalizar_estado_factura(estado: str | None) -> str:
     """Toda factura guardada está al menos 'facturado' (emitida)."""
     return estado if estado in ESTADOS_FACTURA_VALIDOS else "facturado"
 
+
+# Facturas de anticipo / parciales (art. 75 LIVA y equivalente IGIC): cuando se cobra un
+# anticipo hay que emitir factura de ese importe con su impuesto; al terminar, la factura
+# final por el total deduciendo lo ya facturado.
+FACTURA_COMPLETA = "completa"
+FACTURA_ANTICIPO = "anticipo"
+FACTURA_FINAL = "final"
+FACTURA_TIPO_NOMBRE = {
+    FACTURA_COMPLETA: "", FACTURA_ANTICIPO: "anticipo", FACTURA_FINAL: "final",
+}
+
+
+def desglose_anticipo(lineas: list[LineaCalc], descuento_general_pct: float,
+                      pct_anticipo: float) -> dict[float, float]:
+    """{iva_pct: base_del_anticipo} = fracción de la base de cada tipo impositivo."""
+    tot = calcular_totales(lineas, descuento_general_pct)
+    f = _dec(pct_anticipo) / _CIEN
+    return {rate: float(_q2(_dec(b) * f)) for rate, (b, _c) in tot.desglose.items()}
+
+
+def precio_deduccion_anticipo(base_anticipo: float, descuento_general_pct: float) -> float:
+    """Precio a poner en la línea de deducción para que, tras el descuento general del
+    documento, reste exactamente ``base_anticipo``."""
+    factor = Decimal(1) - _dec(descuento_general_pct) / _CIEN
+    if factor == 0:
+        return -_r2(base_anticipo)
+    return _r2(_dec(-base_anticipo) / factor)
+
 # Un presupuesto deja de estar "en curso" cuando se aprueba (pasa a orden), se
 # rechaza o avanza en el flujo. Una orden, cuando se termina o se factura.
 CERRADO_PRESUPUESTO = ("aprobado", "rechazado", "finalizado", "facturado",

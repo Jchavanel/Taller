@@ -810,6 +810,9 @@ class DocumentosTab(_TablaBase):
         menu.addAction("Enviar WhatsApp de agradecimiento…", self._whatsapp_manual)
         a_conv = menu.addAction("Convertir…", self._convertir_dialogo)
         menu.addSeparator()
+        a_ant = menu.addAction("Factura de anticipo…", self._factura_anticipo)
+        a_fin = menu.addAction("Factura final del anticipo…", self._factura_final)
+        menu.addSeparator()
         a_hist = menu.addAction("Añadir al historial del vehículo", self._al_historial)
         menu.addAction("Ver historial del vehículo", self._ver_historial)
         menu.addSeparator()
@@ -819,7 +822,8 @@ class DocumentosTab(_TablaBase):
 
         for b in (self.btn_nuevo, b_editar, b_imprimir, b_correo, b_mas):
             barra.addWidget(b)
-        self._acciones_edicion += [self.btn_nuevo, a_conv, a_hist, a_anul, a_elim]
+        self._acciones_edicion += [self.btn_nuevo, a_conv, a_ant, a_fin, a_hist,
+                                   a_anul, a_elim]
 
     def _doble_clic(self) -> None:
         # abrir siempre está permitido; el editor se abre en solo lectura sin licencia
@@ -844,8 +848,12 @@ class DocumentosTab(_TablaBase):
         self.tabla.setRowCount(len(filas))
         for i, d in enumerate(filas):
             vehiculo = " ".join(x for x in [d["marca"], d["modelo"]] if x)
+            ft = ("factura_tipo" in d.keys() and d["factura_tipo"]) or "completa"
+            numero = d["numero"]
+            if ft in (domain.FACTURA_ANTICIPO, domain.FACTURA_FINAL):
+                numero += f"  ·  {domain.FACTURA_TIPO_NOMBRE[ft]}"
             self._set_fila(i, d["id"], [
-                d["numero"], d["fecha"], d["cliente_nombre"] or "", d["matricula"] or "",
+                numero, d["fecha"], d["cliente_nombre"] or "", d["matricula"] or "",
                 vehiculo, domain.ESTADO_NOMBRE.get(d["estado"], d["estado"]),
                 domain.formato_moneda(d["total"]),
             ])
@@ -1080,6 +1088,70 @@ class DocumentosTab(_TablaBase):
         self.refrescar_todo()
         if nuevo_tipo == domain.FACTURA:
             self._tras_emitir_factura(nuevo_id)
+
+    # ---------------------------------------------------- facturas de anticipo
+    def _abrir_factura_creada(self, fid: int) -> None:
+        idx = self.combo_tipo.findData(domain.FACTURA)
+        if idx >= 0:
+            self.combo_tipo.setCurrentIndex(idx)
+        self.refrescar_todo()
+        DocumentoEditor(self.repo, self, documento_id=fid).exec()
+        self.refrescar_todo()
+        self._tras_emitir_factura(fid)
+
+    def _factura_anticipo(self) -> None:
+        did = self._id_seleccionado()
+        if did is None:
+            return
+        if not _lic.exigir_operar(self):
+            return
+        doc = self.repo.get_documento(did)
+        if not doc or doc["tipo"] != domain.PRESUPUESTO:
+            QMessageBox.information(
+                self, "Factura de anticipo",
+                "Selecciona un presupuesto para facturar su anticipo.")
+            return
+        from PySide6.QtWidgets import QInputDialog
+        pct_def = float(self.repo.get_empresa()["anticipo_pct"] or 50) or 50.0
+        pct, ok = QInputDialog.getDouble(
+            self, "Factura de anticipo",
+            f"Porcentaje del presupuesto {doc['numero']} a facturar como anticipo:",
+            pct_def, 1, 99, 1)
+        if not ok:
+            return
+        try:
+            fid = self.repo.crear_factura_anticipo(did, pct)
+        except ValueError as e:  # noqa: BLE001
+            QMessageBox.warning(self, "Factura de anticipo", str(e))
+            return
+        self._abrir_factura_creada(fid)
+
+    def _factura_final(self) -> None:
+        did = self._id_seleccionado()
+        if did is None:
+            return
+        if not _lic.exigir_operar(self):
+            return
+        doc = self.repo.get_documento(did)
+        if not doc or doc["factura_tipo"] != domain.FACTURA_ANTICIPO:
+            QMessageBox.information(
+                self, "Factura final",
+                "Selecciona una factura de anticipo para emitir su factura final.")
+            return
+        if QMessageBox.question(
+            self, "Factura final",
+            f"¿Emitir la factura final a partir de {doc['numero']}?\n\n"
+            "Incluirá todo el trabajo del presupuesto y deducirá el anticipo ya "
+            "facturado; el cliente pagará el resto.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            fid = self.repo.crear_factura_final(did)
+        except ValueError as e:  # noqa: BLE001
+            QMessageBox.warning(self, "Factura final", str(e))
+            return
+        self._abrir_factura_creada(fid)
 
     # ------------------------------------------------------ WhatsApp + reseñas
     def _tras_emitir_factura(self, doc_id: int) -> None:

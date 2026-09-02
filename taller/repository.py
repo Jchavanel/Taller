@@ -725,6 +725,104 @@ class Repository:
             self.db.commit()
         return nuevo_id
 
+    # ------------------------------------------------------- facturas de anticipo
+    def _lineas_calc(self, documento_id: int) -> list[domain.LineaCalc]:
+        return [
+            domain.LineaCalc(cantidad=l["cantidad"], precio=l["precio"],
+                             descuento_pct=l["descuento_pct"], iva_pct=l["iva_pct"])
+            for l in self.get_lineas(documento_id)
+        ]
+
+    def crear_factura_anticipo(self, presupuesto_id: int, pct: float) -> int:
+        """Emite una factura por el anticipo (pct % del presupuesto) con su impuesto."""
+        pre = self.get_documento(presupuesto_id)
+        if not pre or pre["tipo"] != domain.PRESUPUESTO:
+            raise ValueError("Solo se puede facturar el anticipo de un presupuesto.")
+        if not (0 < pct < 100):
+            raise ValueError("El porcentaje del anticipo debe estar entre 1 y 99.")
+        if self.db.query_one(
+                "SELECT id FROM documento WHERE origen_id = ? AND factura_tipo = 'anticipo'",
+                (presupuesto_id,)):
+            raise ValueError("Este presupuesto ya tiene una factura de anticipo.")
+
+        reparto = domain.desglose_anticipo(
+            self._lineas_calc(presupuesto_id), pre["descuento_pct"], pct)
+        if not reparto or sum(reparto.values()) <= 0:
+            raise ValueError("El presupuesto no tiene importes que facturar.")
+
+        un_solo = len(reparto) == 1
+        lineas = []
+        for rate, base in sorted(reparto.items()):
+            desc = f"Anticipo {pct:g}% s/ presupuesto {pre['numero']}"
+            if not un_solo:
+                desc += f" (base al {rate:g}%)"
+            lineas.append({"tipo": domain.LINEA_MATERIAL, "descripcion": desc,
+                           "cantidad": 1, "precio": base, "descuento_pct": 0,
+                           "iva_pct": rate})
+
+        fid = self.crear_documento({
+            "tipo": domain.FACTURA, "fecha": _today(),
+            "cliente_id": pre["cliente_id"], "vehiculo_id": pre["vehiculo_id"],
+            "kms": pre["kms"], "estado": "facturado", "descuento_pct": 0,
+            "observaciones": (
+                f"Factura de anticipo del {pct:g}% correspondiente al presupuesto "
+                f"{pre['numero']}. El importe se regularizará en la factura final."),
+            "forma_pago": pre["forma_pago"], "origen_id": presupuesto_id,
+        }, lineas)
+        self.db.execute(
+            "UPDATE documento SET factura_tipo = 'anticipo', anticipo_pct = ? WHERE id = ?",
+            (float(pct), fid))
+        self.db.execute(
+            "UPDATE documento SET estado = 'aprobado' WHERE id = ? "
+            "AND estado NOT IN ('facturado','cobrado','anulado')", (presupuesto_id,))
+        self.db.commit()
+        return fid
+
+    def crear_factura_final(self, anticipo_factura_id: int) -> int:
+        """Emite la factura final: todo el trabajo del presupuesto menos el anticipo ya
+        facturado."""
+        ant = self.get_documento(anticipo_factura_id)
+        if not ant or ant["factura_tipo"] != "anticipo":
+            raise ValueError("Selecciona una factura de anticipo.")
+        if self.db.query_one(
+                "SELECT id FROM documento WHERE origen_id = ? AND factura_tipo = 'final'",
+                (anticipo_factura_id,)):
+            raise ValueError("Esta factura de anticipo ya tiene su factura final.")
+        pre = self.get_documento(ant["origen_id"]) if ant["origen_id"] else None
+        if not pre:
+            raise ValueError("No se encuentra el presupuesto de origen del anticipo.")
+
+        desc_gen = pre["descuento_pct"]
+        lineas = [
+            {"tipo": l["tipo"], "codigo": l["codigo"], "descripcion": l["descripcion"],
+             "cantidad": l["cantidad"], "precio": l["precio"],
+             "descuento_pct": l["descuento_pct"], "iva_pct": l["iva_pct"],
+             "es_canon": l["es_canon"] if "es_canon" in l.keys() else 0}
+            for l in self.get_lineas(pre["id"])
+        ]
+        for l in self.get_lineas(anticipo_factura_id):
+            lineas.append({
+                "tipo": domain.LINEA_MATERIAL,
+                "descripcion": f"A deducir: anticipo ya facturado ({ant['numero']})",
+                "cantidad": 1,
+                "precio": domain.precio_deduccion_anticipo(l["precio"], desc_gen),
+                "descuento_pct": 0, "iva_pct": l["iva_pct"],
+            })
+
+        fid = self.crear_documento({
+            "tipo": domain.FACTURA, "fecha": _today(),
+            "cliente_id": pre["cliente_id"], "vehiculo_id": pre["vehiculo_id"],
+            "kms": pre["kms"], "estado": "facturado", "descuento_pct": desc_gen,
+            "observaciones": (
+                f"Factura final del presupuesto {pre['numero']}. Incluye la deducción "
+                f"del anticipo facturado en {ant['numero']}."),
+            "forma_pago": pre["forma_pago"], "origen_id": anticipo_factura_id,
+        }, lineas)
+        self.db.execute("UPDATE documento SET factura_tipo = 'final' WHERE id = ?", (fid,))
+        self.db.execute("UPDATE documento SET estado = 'facturado' WHERE id = ?", (pre["id"],))
+        self.db.commit()
+        return fid
+
     # ------------------------------------------------------------------- varios
     def estadisticas(self) -> dict:
         def n(sql: str, p: tuple = ()) -> int:
