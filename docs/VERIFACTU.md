@@ -1,10 +1,11 @@
 # VeriFactu — alcance y plan
 
-> **Estado: Fase 1 hecha + Fase 2 con el código montado (falta validar contra la AEAT).
+> **Estado: Fase 1 hecha + Fase 2 con el XML ya validado contra los XSD oficiales de la
+> AEAT (falta la prueba real contra preproducción con el certificado del taller).
 > Todo desactivado por defecto.** Fecha objetivo para tenerlo operativo del todo:
-> **julio de 2027**. Modalidad: **VERI\*FACTU** (envío a la AEAT). Falta: validar el XML
-> contra los XSD oficiales, probar contra preproducción con el certificado, y que el
-> asesor confirme fecha límite y declaración responsable.
+> **julio de 2027**. Modalidad: **VERI\*FACTU** (envío a la AEAT). Falta: prueba real
+> contra preproducción con el certificado y ajustar los códigos IGIC según lo que
+> responda la AEAT; que el asesor confirme fecha límite y declaración responsable.
 
 ## Estado actual (Fase 1, v1.23.0)
 
@@ -75,29 +76,36 @@ AEAT por servicio web en el momento de emitir la factura.
 - ✅ Registro de eventos (arranque, cierre, config, cada registro) + `verificar_cadena`.
 - ✅ *Datos de mi taller → VeriFactu* y *Archivo → VeriFactu: estado del registro…*.
 
-### Fase 2 — integración AEAT en pruebas — 🟡 CÓDIGO HECHO, FALTA VALIDAR CONTRA LA AEAT
+### Fase 2 — integración AEAT en pruebas — 🟡 XML VALIDADO, FALTA LA PRUEBA REAL
 - ✅ Generación del XML `RegFactuSistemaFacturacion` (alta/anulación) en
-  [`taller/verifactu_xml.py`].
+  [`taller/verifactu_xml.py`], **validado contra los XSD oficiales** de la AEAT
+  (`SuministroLR.xsd` + `SuministroInformacion.xsd`, IDVersion 1.0), que se guardan en
+  [`taller/resources/verifactu_xsd/`].
+- ✅ Espacios de nombres correctos: `RegistroAlta` / `RegistroAnulacion` y todos sus hijos
+  en `SuministroInformacion`; solo `RegFactuSistemaFacturacion` / `Cabecera` /
+  `RegistroFactura` en `SuministroLR`.
+- ✅ Endpoints y `SOAPAction` (vacío) confirmados con `SistemaFacturacion.wsdl`.
+- ✅ Validación XSD en local antes de enviar (biblioteca `xmlschema`, opcional).
+- ✅ *Archivo → VeriFactu: ver el XML de una factura (diagnóstico)…* — genera el
+  mensaje sin enviarlo, para que el asesor lo revise.
 - ✅ Cliente del servicio web con **certificado de cliente** (.p12/.pfx) en
   [`taller/verifactu_envio.py`] — conexión TLS, sin firma XAdES (modalidad VERI\*FACTU).
-- ✅ Cola: `registro_facturacion.estado_envio` (`pendiente` / `enviado` /
-  `aceptado_con_errores` / `rechazado` / `error_conexion`) + `csv`, `respuesta`,
-  `enviado_en`, `intentos` (SCHEMA 12). Envío automático al emitir/anular y al arrancar,
-  más *Archivo → VeriFactu: enviar registros pendientes*.
-- ✅ Config en *Datos de mi taller → VeriFactu*: modo (`Desactivado` / `Local` /
-  `Preproducción` / `Producción`), certificado + contraseña, **Probar conexión**.
+- ✅ Cola: `registro_facturacion.estado_envio` + `csv`, `respuesta`, `enviado_en`,
+  `intentos` (SCHEMA 12). Envío automático al emitir/anular y al arrancar, más
+  *Archivo → VeriFactu: enviar registros pendientes*.
+- ✅ Config en *Datos de mi taller → VeriFactu*: modo, certificado + contraseña,
+  **Probar conexión**.
 - ✅ Parseo de la respuesta (EstadoEnvio, CSV, estado por registro).
 
 **PENDIENTE antes de usar en preproducción:**
-1. Descargar los **XSD oficiales** de la AEAT y **validar el XML generado** campo a campo
-   (los `# VERIFICAR` de `verifactu_xml.py`): namespaces, orden de elementos,
-   obligatoriedad, códigos (`TipoFactura`, `Impuesto`=03 IGIC, `ClaveRegimen`,
-   `CalificacionOperacion`, `IdSistemaInformatico`…).
-2. Confirmar los **endpoints** (`verifactu_envio.ENDPOINT`) y si hace falta `SOAPAction`.
-3. Confirmar los campos del **`SistemaInformatico`** (nº de instalación, tipo de uso) y si
-   el software necesita estar registrado / declaración responsable presentada.
-4. Prueba real con el certificado del taller contra **preproducción** y ajustar el
-   parseo de la respuesta y los códigos de error a lo que devuelva.
+1. **Prueba real** con el certificado del taller contra el endpoint de preproducción
+   (`https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP`) y
+   ajustar el parseo de la respuesta y los códigos de error a lo que devuelva.
+2. Confirmar los códigos **IGIC**: `ClaveRegimen` (ahora `01`) y `CalificacionOperacion`
+   (ahora `S1`) según el documento de validaciones de la AEAT y lo que devuelva la
+   preproducción.
+3. Confirmar si el software necesita **declaración responsable** presentada antes de
+   operar en real, y la fecha límite (asesor).
 
 ### Fase 3 — producción
 - Carga y gestión del certificado electrónico (PIN, aviso de caducidad).

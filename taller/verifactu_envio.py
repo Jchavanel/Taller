@@ -22,7 +22,8 @@ from . import email_envio as _mail
 from . import verifactu
 from .errores import log
 
-# Endpoints del servicio (VERIFICAR).
+# Endpoints del servicio, según SistemaFacturacion.wsdl de la AEAT (acceso con
+# certificado de persona/representante; SOAPAction vacío, estilo document/literal).
 ENDPOINT = {
     "preproduccion": ("https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/"
                       "SistemaFacturacion/VerifactuSOAP"),
@@ -187,6 +188,38 @@ def _elemento_registro(repo, reg_row, empresa):
     desglose = [{"tipo": r, "base": b, "cuota": c}
                 for r, (b, c) in sorted(tot.desglose.items())]
     return vx.registro_alta(reg_row, empresa, dest, desglose, anterior)
+
+
+def previsualizar(repo, documento_id: int) -> dict:
+    """Genera el XML+SOAP que se enviaría a la AEAT para una factura, SIN enviarlo.
+
+    Usa el registro real si la factura ya lo tiene; si no, lo calcula al vuelo.
+    Devuelve ``{"xml": str, "validacion": list|None, "endpoint": str|None,
+    "simulado": bool, "error": str}``.
+    """
+    from . import verifactu_xml as vx
+    empresa = repo.get_empresa()
+    reg = verifactu.registro_de_documento(repo, documento_id)
+    simulado = reg is None
+    if simulado:
+        reg = verifactu.registro_simulado(repo, documento_id)
+    if reg is None:
+        return {"error": "El documento no es una factura."}
+    try:
+        elemento = _elemento_registro(repo, reg, empresa)
+    except Exception as e:  # noqa: BLE001
+        log().exception("VeriFactu: no se pudo construir el XML de previsualización")
+        return {"error": f"No se pudo construir el XML: {e}"}
+    mensaje = vx.mensaje_regfactu(empresa, [elemento])
+    sobre = vx.sobre_soap(mensaje)
+    endpoint = ENDPOINT.get(empresa["verifactu_modo"])
+    return {
+        "xml": vx.bonito(ET.fromstring(sobre)),
+        "validacion": vx.validar(mensaje),
+        "endpoint": endpoint,
+        "simulado": simulado,
+        "error": "",
+    }
 
 
 def enviar_pendientes(repo, limite: int = _MAX_LOTE) -> dict:

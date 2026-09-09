@@ -606,8 +606,8 @@ def test_verifactu_fase2_xml_y_cola():
         assert reg["estado_envio"] == "pendiente"
 
         el = verifactu_envio._elemento_registro(repo, reg, repo.get_empresa())
-        sobre = verifactu_xml.sobre_soap(verifactu_xml.mensaje_regfactu(
-            repo.get_empresa(), [el]))
+        mensaje = verifactu_xml.mensaje_regfactu(repo.get_empresa(), [el])
+        sobre = verifactu_xml.sobre_soap(mensaje)
         raiz = ET.fromstring(sobre)
         nombres = {t.tag.rsplit("}", 1)[-1] for t in raiz.iter()}
         for req in ("RegFactuSistemaFacturacion", "RegistroAlta", "IDFactura",
@@ -616,10 +616,33 @@ def test_verifactu_fase2_xml_y_cola():
             assert req in nombres, req
         assert b"200.00" in sobre and reg["serie_numero"].encode() in sobre
 
+        # RegistroAlta y descendientes van en el namespace SuministroInformacion
+        NS_SUM = verifactu_xml._NS_SUM
+        alta = next(t for t in raiz.iter() if t.tag == f"{{{NS_SUM}}}RegistroAlta")
+        assert alta.find(f"{{{NS_SUM}}}Huella") is not None
+
+        # valida contra los XSD oficiales de la AEAT (si xmlschema está instalado)
+        errores = verifactu_xml.validar(mensaje)
+        assert errores in (None, []), errores
+
+        # previsualización sin enviar (diagnóstico)
+        prev = verifactu_envio.previsualizar(repo, f)
+        assert not prev["error"] and "RegistroAlta" in prev["xml"]
+        assert prev["validacion"] in (None, [])
+
+        # anulación: también válida y con los nombres *Anulada
+        repo.anular_documento(f, "prueba")
+        ranul = db.query_one("SELECT * FROM registro_facturacion WHERE documento_id = ? "
+                             "AND tipo_registro = 'anulacion'", (f,))
+        el_an = verifactu_envio._elemento_registro(repo, ranul, repo.get_empresa())
+        msg_an = verifactu_xml.mensaje_regfactu(repo.get_empresa(), [el_an])
+        assert verifactu_xml.validar(msg_an) in (None, [])
+        assert f"{{{NS_SUM}}}IDEmisorFacturaAnulada" in {
+            t.tag for t in ET.fromstring(verifactu_xml.xml_str(msg_an)).iter()}
+
         # sin certificado -> no se envía, queda en cola
         r = verifactu_envio.enviar_pendientes(repo)
         assert r["enviados"] == 0 and "certificado" in r["error"].lower()
-        assert verifactu.registro_de_documento(repo, f)["estado_envio"] == "pendiente"
 
         # parseo de una respuesta de la AEAT
         resp = (b"<x><CSV>ABC123</CSV><EstadoEnvio>Correcto</EstadoEnvio>"

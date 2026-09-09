@@ -31,6 +31,8 @@ rm -rf build dist/taller-coches AppDir
     --add-data "taller/resources:taller/resources" \
     --hidden-import reportlab.graphics.barcode \
     --collect-all spylls \
+    --collect-all xmlschema \
+    --collect-all elementpath \
     run_app.py
 
 echo ">> Montando AppDir…"

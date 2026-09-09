@@ -24,7 +24,9 @@ from . import __version__
 
 # Identificación del sistema informático (va en cada registro).
 SOFTWARE_NOMBRE = "Taller de Coches"
-SOFTWARE_ID = "TALLERCOCHES"          # identificador del sistema informático
+SOFTWARE_ID = "TALLERCOCHES"          # identificador interno (datos_json, eventos)
+# IdSistemaInformatico del XML de la AEAT: máx. 2 caracteres (TextMax2Type).
+SOFTWARE_ID_SIF = "TC"
 SOFTWARE_VERSION = __version__
 
 #   desactivado  → nada
@@ -227,6 +229,34 @@ def registro_de_documento(repo, documento_id: int):
         "SELECT * FROM registro_facturacion WHERE documento_id = ? AND tipo_registro = 'alta'",
         (documento_id,),
     )
+
+
+def registro_simulado(repo, documento_id: int) -> dict | None:
+    """Registro de ALTA calculado al vuelo, SIN guardarlo ni encadenarlo.
+
+    Sirve para previsualizar/validar el XML de una factura antes de activar
+    VeriFactu o de emitirla. La huella se calcula con huella anterior vacía.
+    """
+    doc = repo.get_documento(documento_id)
+    if doc is None or doc["tipo"] != "factura":
+        return None
+    empresa = repo.get_empresa()
+    nif = (empresa["verifactu_nif_productor"] or empresa["nif"] or "").strip().upper()
+    campos = _campos_desde_documento(doc, nif)
+    huella = huella_alta(campos, "")
+    return {
+        "documento_id": documento_id,
+        "tipo_registro": "alta",
+        "nif_emisor": nif,
+        "serie_numero": campos["serie_numero"],
+        "fecha_expedicion": campos["fecha_expedicion"],
+        "tipo_factura": campos["tipo_factura"],
+        "cuota_total": campos["cuota_total"],
+        "importe_total": campos["importe_total"],
+        "huella_anterior": "",
+        "huella": huella,
+        "timestamp": campos["timestamp"],
+    }
 
 
 # --------------------------------------------------------------- integridad

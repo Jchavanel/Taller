@@ -22,6 +22,8 @@ PY="${PYTHON:-python3}"
     --add-data "taller/resources:taller/resources" \
     --hidden-import reportlab.graphics.barcode \
     --collect-all spylls \
+    --collect-all xmlschema \
+    --collect-all elementpath \
     run_app.py
 
 echo

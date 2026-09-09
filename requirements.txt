@@ -3,6 +3,10 @@ reportlab>=4.0,<6
 cryptography>=42
 spylls>=0.1.7
 
+# VeriFactu Fase 2: valida en local el XML antes de enviarlo a la AEAT. Si no se
+# instala, la app funciona igual pero no comprueba el XML contra los XSD oficiales.
+xmlschema>=3.0
+
 # Opcional. Guarda la contraseña del correo en el llavero del sistema operativo en
 # lugar de en la base de datos (ofuscada). Si no se instala, la app funciona igual.
 # En Linux necesita GNOME Keyring / KWallet (paquete `gnome-keyring` o `kwalletmanager`).

@@ -131,6 +131,9 @@ class MainWindow(QMainWindow):
         self.act_vf_envio = QAction("VeriFactu: enviar registros pendientes a la AEAT", self)
         self.act_vf_envio.triggered.connect(lambda: self._verifactu_enviar(silencioso=False))
         m_archivo.addAction(self.act_vf_envio)
+        act_vf_diag = QAction("VeriFactu: ver el XML de una factura (diagnóstico)…", self)
+        act_vf_diag.triggered.connect(self._verifactu_diagnostico)
+        m_archivo.addAction(act_vf_diag)
         m_archivo.addSeparator()
         act_salir = QAction("Salir", self)
         act_salir.setShortcut("Ctrl+Q")
@@ -422,6 +425,80 @@ class MainWindow(QMainWindow):
         caja.setTextFormat(Qt.TextFormat.RichText)
         caja.setText("<br>".join(lineas))
         caja.exec()
+
+    def _verifactu_diagnostico(self) -> None:
+        """Muestra el XML/SOAP que se enviaría a la AEAT para una factura, sin enviarlo."""
+        from PySide6.QtWidgets import (
+            QComboBox, QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QVBoxLayout,
+        )
+        from PySide6.QtGui import QFont, QGuiApplication
+        from .. import verifactu_envio
+
+        facturas = self.repo.list_documentos("factura", limite=200)
+        if not facturas:
+            QMessageBox.information(self, "VeriFactu", "No hay ninguna factura todavía.")
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("VeriFactu — XML de diagnóstico")
+        dlg.resize(760, 620)
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(QLabel(
+            "Genera el mensaje que se enviaría a la AEAT <b>sin enviarlo</b>, para que "
+            "tu asesor pueda revisarlo. La factura no se modifica."))
+        combo = QComboBox()
+        for f in facturas:
+            combo.addItem(f"{f['numero']} — {f['cliente_nombre'] or ''}".strip(" —"),
+                          f["id"])
+        lay.addWidget(combo)
+        estado = QLabel()
+        estado.setWordWrap(True)
+        lay.addWidget(estado)
+        texto = QPlainTextEdit()
+        texto.setReadOnly(True)
+        texto.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        _mono = QFont("Consolas", 9)
+        _mono.setStyleHint(QFont.StyleHint.Monospace)
+        texto.setFont(_mono)
+        lay.addWidget(texto, 1)
+
+        botones = QDialogButtonBox()
+        b_copiar = botones.addButton("Copiar XML", QDialogButtonBox.ButtonRole.ActionRole)
+        botones.addButton(QDialogButtonBox.StandardButton.Close)
+        botones.rejected.connect(dlg.reject)
+        b_copiar.clicked.connect(
+            lambda: QGuiApplication.clipboard().setText(texto.toPlainText()))
+        lay.addWidget(botones)
+
+        def actualizar() -> None:
+            r = verifactu_envio.previsualizar(self.repo, combo.currentData())
+            if r.get("error"):
+                estado.setText(f'<span style="color:#b3261e">{r["error"]}</span>')
+                texto.setPlainText("")
+                return
+            partes = []
+            if r["simulado"]:
+                partes.append("Registro calculado al vuelo (esta factura aún no tiene "
+                              "registro VeriFactu guardado).")
+            v = r["validacion"]
+            if v is None:
+                partes.append("Validación XSD no disponible (falta la biblioteca "
+                              "«xmlschema»).")
+            elif v:
+                partes.append('<span style="color:#b3261e"><b>✗ No valida contra el '
+                              "esquema de la AEAT:</b></span><br>"
+                              + "<br>".join(f"• {e}" for e in v[:8]))
+            else:
+                partes.append('<span style="color:#2e7d32">✓ Valida contra el esquema '
+                              "oficial de la AEAT.</span>")
+            if r.get("endpoint"):
+                partes.append(f"Se enviaría a: <code>{r['endpoint']}</code>")
+            estado.setText("<br>".join(partes))
+            texto.setPlainText(r["xml"])
+
+        combo.currentIndexChanged.connect(actualizar)
+        actualizar()
+        dlg.exec()
 
     # ------------------------------------------------------------- licencia
     def _abrir_licencia(self) -> None:
