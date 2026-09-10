@@ -412,8 +412,11 @@ Cuando el taller cobra un anticipo antes de empezar (p. ej. el 50 %), la ley obl
 emitir una **factura de ese anticipo con su impuesto** y, al terminar, la **factura final**
 por el total deduciendo lo ya facturado.
 
-- Sobre un **presupuesto**: *Documentos → Más → Factura de anticipo…* → indicas el % → se
-  emite una factura por ese porcentaje de cada tipo impositivo (IGIC incluido).
+- Sobre un **presupuesto**: *Documentos → Más → Factura de anticipo…* → indicas el
+  **importe en euros** (por defecto el % configurado en Datos de mi taller, pero se puede
+  cambiar por la cantidad real que haya dejado el cliente; el diálogo muestra a cuánto
+  % equivale y cuánto queda pendiente) → se emite una factura por ese importe, repartido
+  proporcionalmente entre los tipos impositivos (IGIC incluido).
 - Sobre esa **factura de anticipo**: *Documentos → Más → Factura final del anticipo…* →
   se emite la factura final con **todo el trabajo del presupuesto** y una línea negativa
   que **deduce el anticipo ya facturado**; el cliente paga el resto. Las dos facturas

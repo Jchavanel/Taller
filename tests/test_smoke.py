@@ -233,8 +233,8 @@ def test_formato_taller_igic_y_anticipo():
     ftxt = " ".join(pymupdf.open(str(fac_pdf))[0].get_text().split())
     assert "ANTICIPO" not in ftxt and "Firma:" not in ftxt
     assert "TOTAL FACTURA" in ftxt
-    # el IBAN solo va en el presupuesto, no en la factura
-    assert "IBAN" not in ftxt and "ES59 0182" not in ftxt
+    # el IBAN también va en la factura (cuenta corriente para pagar por transferencia)
+    assert "IBAN ES59 0182 5046 4602 0162 1452" in ftxt
 
 
 def test_aplicar_impuesto_a_articulos():
@@ -751,6 +751,41 @@ def test_factura_anticipo_y_final():
         pass
     try:
         repo.crear_factura_anticipo(f_id, 50)   # no es un presupuesto
+        assert False
+    except ValueError:
+        pass
+
+
+def test_factura_anticipo_por_importe():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Anticipo importe SL"})
+
+    # presupuesto de 200 base + 14 IGIC = 214
+    pid = repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "fecha": "2026-05-01", "cliente_id": cid},
+        [{"descripcion": "Reparación", "cantidad": 1, "precio": 200, "iva_pct": 7}])
+    pre = repo.get_documento(pid)
+
+    # el cliente deja 80 € en vez del 50% (107 €) por defecto
+    a_id = repo.crear_factura_anticipo(pid, importe=80)
+    ant = repo.get_documento(a_id)
+    assert ant["total"] == 80.0
+    assert round(ant["anticipo_pct"], 2) == round(80 / 214 * 100, 2)
+    assert "80,00" in repo.get_lineas(a_id)[0]["descripcion"]
+
+    # la final deduce exactamente esos 80 € del total
+    f_id = repo.crear_factura_final(a_id)
+    fin = repo.get_documento(f_id)
+    assert round(ant["total"] + fin["total"], 2) == pre["total"]
+
+    # importe fuera de rango
+    cid2 = repo.save_cliente({"nombre": "Anticipo importe SL 2"})
+    pid2 = repo.crear_documento(
+        {"tipo": domain.PRESUPUESTO, "cliente_id": cid2},
+        [{"descripcion": "x", "cantidad": 1, "precio": 100, "iva_pct": 7}])
+    try:
+        repo.crear_factura_anticipo(pid2, importe=1000)
         assert False
     except ValueError:
         pass

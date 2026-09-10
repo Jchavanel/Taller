@@ -755,27 +755,45 @@ class Repository:
             for l in self.get_lineas(documento_id)
         ]
 
-    def crear_factura_anticipo(self, presupuesto_id: int, pct: float) -> int:
-        """Emite una factura por el anticipo (pct % del presupuesto) con su impuesto."""
+    def crear_factura_anticipo(self, presupuesto_id: int, pct: float | None = None,
+                               importe: float | None = None) -> int:
+        """Emite una factura por el anticipo de un presupuesto, con su impuesto.
+
+        Se indica el porcentaje (``pct``) o el importe en euros (``importe``) del
+        anticipo; el que falte se calcula a partir del total del presupuesto."""
         pre = self.get_documento(presupuesto_id)
         if not pre or pre["tipo"] != domain.PRESUPUESTO:
             raise ValueError("Solo se puede facturar el anticipo de un presupuesto.")
-        if not (0 < pct < 100):
-            raise ValueError("El porcentaje del anticipo debe estar entre 1 y 99.")
         if self.db.query_one(
                 "SELECT id FROM documento WHERE origen_id = ? AND factura_tipo = 'anticipo'",
                 (presupuesto_id,)):
             raise ValueError("Este presupuesto ya tiene una factura de anticipo.")
 
-        reparto = domain.desglose_anticipo(
-            self._lineas_calc(presupuesto_id), pre["descuento_pct"], pct)
+        lineas_pre = self._lineas_calc(presupuesto_id)
+        total = domain.calcular_totales(lineas_pre, pre["descuento_pct"]).total
+        if importe is not None:
+            if not (0 < importe < total):
+                raise ValueError(
+                    "El importe del anticipo debe ser mayor que 0 € y menor que el "
+                    f"total del presupuesto ({domain.formato_moneda(total)}).")
+            pct = domain.pct_desde_importe(total, importe)
+        elif not (pct and 0 < pct < 100):
+            raise ValueError("El porcentaje del anticipo debe estar entre 1 y 99.")
+
+        reparto = domain.desglose_anticipo(lineas_pre, pre["descuento_pct"], pct)
         if not reparto or sum(reparto.values()) <= 0:
             raise ValueError("El presupuesto no tiene importes que facturar.")
 
+        if importe is not None:
+            etiqueta = f"Anticipo de {domain.formato_moneda(importe)}"
+            desc_obs = f"Factura de anticipo de {domain.formato_moneda(importe)}"
+        else:
+            etiqueta = f"Anticipo {pct:g}%"
+            desc_obs = f"Factura de anticipo del {pct:g}%"
         un_solo = len(reparto) == 1
         lineas = []
         for rate, base in sorted(reparto.items()):
-            desc = f"Anticipo {pct:g}% s/ presupuesto {pre['numero']}"
+            desc = f"{etiqueta} s/ presupuesto {pre['numero']}"
             if not un_solo:
                 desc += f" (base al {rate:g}%)"
             lineas.append({"tipo": domain.LINEA_MATERIAL, "descripcion": desc,
@@ -787,8 +805,8 @@ class Repository:
             "cliente_id": pre["cliente_id"], "vehiculo_id": pre["vehiculo_id"],
             "kms": pre["kms"], "estado": "facturado", "descuento_pct": 0,
             "observaciones": (
-                f"Factura de anticipo del {pct:g}% correspondiente al presupuesto "
-                f"{pre['numero']}. El importe se regularizará en la factura final."),
+                f"{desc_obs} correspondiente al presupuesto {pre['numero']}. "
+                "El importe se regularizará en la factura final."),
             "forma_pago": pre["forma_pago"], "origen_id": presupuesto_id,
         }, lineas)
         self.db.execute(

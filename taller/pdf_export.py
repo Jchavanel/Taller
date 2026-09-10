@@ -502,9 +502,9 @@ def generar_pdf(doc_row, lineas_rows, cliente_row, vehiculo_row, empresa_row,
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     elems.append(fp1)
-    # El IBAN solo aparece en el presupuesto (para que el cliente lo acepte e ingrese
-    # el anticipo). En orden, albarán y factura no se muestra.
-    if empresa_row["iban"] and tipo == domain.PRESUPUESTO:
+    # El IBAN aparece en el presupuesto (para que el cliente ingrese el anticipo) y en
+    # la factura (para pagos por transferencia). En orden y albarán no se muestra.
+    if empresa_row["iban"] and tipo in (domain.PRESUPUESTO, domain.FACTURA):
         fp2 = Table([[Paragraph(f"<b>Titular:</b> {_esc(empresa_row['nombre'])}", st["fp_row"]),
                       Paragraph(f"<b>IBAN {_esc(empresa_row['iban'])}</b>", st["fp_iban"])]],
                     colWidths=[78 * mm, ancho - 78 * mm])

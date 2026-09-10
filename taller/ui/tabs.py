@@ -1118,16 +1118,56 @@ class DocumentosTab(_TablaBase):
                 self, "Factura de anticipo",
                 "Selecciona un presupuesto para facturar su anticipo.")
             return
-        from PySide6.QtWidgets import QInputDialog
+        total = doc["total"]
+        if total < 0.02:
+            QMessageBox.information(
+                self, "Factura de anticipo",
+                "Este presupuesto no tiene importe suficiente para un anticipo.")
+            return
+
+        from PySide6.QtWidgets import QDialogButtonBox, QDoubleSpinBox
         pct_def = float(self.repo.get_empresa()["anticipo_pct"] or 50) or 50.0
-        pct, ok = QInputDialog.getDouble(
-            self, "Factura de anticipo",
-            f"Porcentaje del presupuesto {doc['numero']} a facturar como anticipo:",
-            pct_def, 1, 99, 1)
-        if not ok:
+        importe_def = round(total * pct_def / 100, 2)
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Factura de anticipo")
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(QLabel(
+            f"Importe del anticipo a facturar del presupuesto {doc['numero']}\n"
+            f"(total {domain.formato_moneda(total)}). Por defecto, el "
+            f"{pct_def:g} % configurado; puedes cambiarlo por la cantidad que "
+            "haya dejado el cliente."))
+        spin = QDoubleSpinBox()
+        spin.setDecimals(2)
+        spin.setRange(0.01, round(total - 0.01, 2))
+        spin.setSuffix(" €")
+        spin.setSingleStep(10)
+        spin.setValue(min(importe_def, round(total - 0.01, 2)))
+        lay.addWidget(spin)
+        info = QLabel()
+        info.setStyleSheet("color:#555;")
+        lay.addWidget(info)
+
+        def _actualizar() -> None:
+            importe = spin.value()
+            pct = domain.pct_desde_importe(total, importe)
+            resto = round(total - importe, 2)
+            info.setText(f"= {pct:.1f} % del total  ·  queda por abonar "
+                        f"{domain.formato_moneda(resto)}")
+
+        spin.valueChanged.connect(_actualizar)
+        _actualizar()
+
+        botones = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        botones.accepted.connect(dlg.accept)
+        botones.rejected.connect(dlg.reject)
+        lay.addWidget(botones)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         try:
-            fid = self.repo.crear_factura_anticipo(did, pct)
+            fid = self.repo.crear_factura_anticipo(did, importe=spin.value())
         except ValueError as e:  # noqa: BLE001
             QMessageBox.warning(self, "Factura de anticipo", str(e))
             return

@@ -75,6 +75,14 @@ def desglose_anticipo(lineas: list[LineaCalc], descuento_general_pct: float,
     return {rate: float(_q2(_dec(b) * f)) for rate, (b, _c) in tot.desglose.items()}
 
 
+def pct_desde_importe(total: float, importe: float) -> float:
+    """Porcentaje que representa ``importe`` sobre ``total`` (para repartirlo entre los
+    tipos impositivos igual que un anticipo por porcentaje)."""
+    if total <= 0:
+        return 0.0
+    return float(_dec(importe) / _dec(total) * _CIEN)
+
+
 def precio_deduccion_anticipo(base_anticipo: float, descuento_general_pct: float) -> float:
     """Precio a poner en la línea de deducción para que, tras el descuento general del
     documento, reste exactamente ``base_anticipo``."""
