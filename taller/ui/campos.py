@@ -1,38 +1,28 @@
-"""Campos de texto de la aplicación: mayúscula inicial automática en cada palabra."""
+"""Campos de texto de la aplicación: mayúscula/minúscula automática al escribir."""
 from __future__ import annotations
 
 from PySide6.QtWidgets import QLineEdit
 
-# caracteres tras los que empieza una palabra nueva
-_SEPARADORES = set(" \t\n\r-/.,;:()[]'\"·")
-
-
-def titular(texto: str) -> str:
-    """Pone en mayúscula la primera letra de cada palabra. No cambia el resto de
-    letras (respeta lo que ha escrito el usuario: siglas, BMW…). No cambia longitud."""
-    salida = []
-    nueva = True
-    for ch in texto:
-        if nueva and ch.isalpha():
-            salida.append(ch.upper())
-            nueva = False
-        else:
-            salida.append(ch)
-        nueva = ch in _SEPARADORES
-    return "".join(salida)
+from ..domain import titular  # noqa: F401 - se reexporta: lo usan otros módulos de ui
 
 
 class LineaTitulo(QLineEdit):
-    """QLineEdit que pone en mayúscula la inicial de cada palabra según se escribe."""
+    """QLineEdit que normaliza mayúsculas/minúsculas según se escribe.
 
-    def __init__(self, texto: str = "", parent=None) -> None:
+    Por defecto deja la inicial de cada palabra en mayúscula y el resto en
+    minúscula (:func:`titular`). Con ``mayusculas=True`` (la marca del vehículo)
+    lo pone todo en mayúsculas.
+    """
+
+    def __init__(self, texto: str = "", parent=None, *, mayusculas: bool = False) -> None:
         super().__init__("", parent)
+        self._normalizar = str.upper if mayusculas else titular
         self.textEdited.connect(self._al_editar)
         if texto:
             self.setText(texto)
 
     def _al_editar(self, _texto: str) -> None:
-        nuevo = titular(self.text())
+        nuevo = self._normalizar(self.text())
         if nuevo != self.text():
             pos = self.cursorPosition()
             self.blockSignals(True)
@@ -41,4 +31,4 @@ class LineaTitulo(QLineEdit):
             self.blockSignals(False)
 
     def setText(self, texto: str) -> None:  # noqa: N802
-        super().setText(titular(texto or ""))
+        super().setText(self._normalizar(texto or ""))

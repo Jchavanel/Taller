@@ -261,3 +261,24 @@ def formato_moneda(x: float) -> str:
     s = f"{x:,.2f}"
     s = s.replace(",", "_").replace(".", ",").replace("_", ".")
     return f"{s} €"
+
+
+# caracteres tras los que empieza una palabra nueva, para titular()
+_SEPARADORES_TITULAR = set(" \t\n\r-/.,;:()[]'\"·")
+
+
+def titular(texto: str) -> str:
+    """Primera letra de cada palabra en mayúscula, el resto en minúscula. Da igual
+    cómo esté escrito el original (todo mayúsculas, todo minúsculas o mezclado); no
+    cambia la longitud del texto. Sin dependencias de interfaz: se usa tanto al
+    escribir en los formularios (taller/ui/campos.py) como para normalizar datos ya
+    guardados (taller/database.py)."""
+    salida = []
+    nueva = True
+    for ch in texto:
+        if ch.isalpha():
+            salida.append(ch.upper() if nueva else ch.lower())
+        else:
+            salida.append(ch)
+        nueva = ch in _SEPARADORES_TITULAR
+    return "".join(salida)

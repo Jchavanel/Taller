@@ -662,7 +662,10 @@ def test_capitalizar_y_corrector():
     from taller.ui.campos import titular
     assert titular("josé garcía de la cruz") == "José García De La Cruz"
     assert titular("c/. la centrífuga, 62") == "C/. La Centrífuga, 62"
-    assert titular("BMW serie 3") == "BMW Serie 3"      # no baja lo que ya está en mayús.
+    # inicial en mayúscula y el resto en minúscula, escriba como escriba el usuario
+    assert titular("BMW SERIE 3") == "Bmw Serie 3"
+    assert titular("bmw serie 3") == "Bmw Serie 3"
+    assert titular("BmW SeRiE 3") == "Bmw Serie 3"
 
     try:
         import spylls  # noqa: F401
@@ -678,6 +681,40 @@ def test_capitalizar_y_corrector():
     assert not corrector.esta_mal("ABS")                       # siglas: se ignoran
     assert corrector.sugerencias("camion")[0] == "camión"      # tilde primero
     assert corrector.sugerencias("Camion")[0] == "Camión"      # respeta mayúscula
+
+
+def test_normalizar_texto_datos_existentes():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "cliente", "poblacion": "las palmas"})
+    vid = repo.save_vehiculo({"cliente_id": cid, "matricula": "1234NRM",
+                              "marca": "seat", "modelo": "ibiza", "color": "rojo"})
+    aid = repo.save_articulo({"codigo": "X1", "descripcion": "cambio de aceite",
+                              "tipo": "material", "precio": 10, "iva_pct": 7})
+    # simula datos "sucios" guardados antes de tener la normalización automática, y
+    # borra la marca de "ya normalizado" para simular una base de datos antigua
+    db.execute("UPDATE cliente SET nombre='JUAN PEREZ', poblacion='las palmas' "
+              "WHERE id=?", (cid,))
+    db.execute("UPDATE vehiculo SET marca='seat', modelo='IBIZA sport' WHERE id=?", (vid,))
+    db.execute("UPDATE articulo SET descripcion='cambio DE aceite' WHERE id=?", (aid,))
+    db.execute("DELETE FROM meta WHERE clave = 'normalizado_texto_v1'")
+    db.commit()
+
+    db._normalizar_texto_una_vez()
+
+    cli = repo.get_cliente(cid)
+    assert cli["nombre"] == "Juan Perez" and cli["poblacion"] == "Las Palmas"
+    veh = repo.get_vehiculo(vid)
+    assert veh["marca"] == "SEAT"                 # la marca, siempre en mayúsculas
+    assert veh["modelo"] == "Ibiza Sport"
+    art = repo.get_articulo(aid)
+    assert art["descripcion"] == "Cambio De Aceite"
+
+    # ya normalizada: no se vuelve a tocar (evita reescribir en cada arranque)
+    db.execute("UPDATE cliente SET nombre = 'mario' WHERE id = ?", (cid,))
+    db.commit()
+    db._normalizar_texto_una_vez()
+    assert repo.get_cliente(cid)["nombre"] == "mario"
 
 
 def test_kms_ida_y_vuelta_vehiculo():

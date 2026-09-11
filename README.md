@@ -253,8 +253,12 @@ python -m taller
 3. Pestaña **Clientes** → *Nuevo cliente*. En la misma ficha, con **Añadir vehículo**,
    le registras uno o varios coches sin salir del formulario. **Todos los campos del
    cliente son obligatorios** (menos *Notas*); no deja guardar si falta alguno.
-   Los campos de texto (nombre, dirección, población, marca, modelo, descripciones…)
-   ponen **la inicial de cada palabra en mayúscula** automáticamente al escribir.
+   Los campos de texto (nombre, dirección, población, modelo, descripciones…) ponen
+   **la inicial de cada palabra en mayúscula y el resto en minúscula** automáticamente
+   al escribir, escribas como escribas (todo mayúsculas, todo minúsculas o mezclado).
+   La **marca del vehículo** es la excepción: siempre se pone toda en mayúsculas
+   (p. ej. «SEAT», «BMW»). Este mismo ajuste se aplicó una vez, automáticamente, a los
+   clientes, vehículos y artículos que ya hubiera guardados de antes.
    Los cuadros de texto largo (Observaciones, Notas, detalle del historial) llevan
    **corrector ortográfico de español**: subraya en rojo lo que no reconoce (palabras mal
    escritas o **sin tilde**: *camion* → sugiere *camión*) y con el **botón derecho** ofrece

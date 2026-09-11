@@ -131,7 +131,7 @@ class VehiculoFormDialog(QDialog):
         lay.addWidget(_scroll, 1)
 
         self.matricula = QLineEdit(str(datos.get("matricula", "") or ""))
-        self.marca = LineaTitulo(str(datos.get("marca", "") or ""))
+        self.marca = LineaTitulo(str(datos.get("marca", "") or ""), mayusculas=True)
         self.modelo = LineaTitulo(str(datos.get("modelo", "") or ""))
         self.bastidor = QLineEdit(str(datos.get("bastidor", "") or ""))
         self.anio = QSpinBox()
@@ -374,7 +374,7 @@ class VehiculoDialog(_BaseDialog):
             self.cliente.addItem(c["nombre"], c["id"])
 
         self.matricula = QLineEdit()
-        self.marca = LineaTitulo()
+        self.marca = LineaTitulo(mayusculas=True)
         self.modelo = LineaTitulo()
         self.bastidor = QLineEdit()
         self.anio = QSpinBox()

@@ -277,6 +277,40 @@ class Database:
         )
         self.conn.execute("INSERT OR IGNORE INTO empresa (id) VALUES (1)")
         self.conn.commit()
+        self._normalizar_texto_una_vez()
+
+    def _normalizar_texto_una_vez(self) -> None:
+        """Aplica una sola vez, a los datos ya guardados, la misma normalización de
+        mayúsculas/minúsculas que se usa al escribir en los formularios (inicial en
+        mayúscula y el resto en minúscula; la marca del vehículo, siempre en
+        mayúsculas) — mejora visual de los datos introducidos antes de tener esta
+        normalización automática."""
+        clave = "normalizado_texto_v1"
+        if self.conn.execute("SELECT 1 FROM meta WHERE clave = ?", (clave,)).fetchone():
+            return
+        from . import domain
+
+        def norm(v):
+            return domain.titular(v) if v else v
+
+        for id_, nombre, direccion, poblacion, provincia in self.conn.execute(
+                "SELECT id, nombre, direccion, poblacion, provincia FROM cliente"
+        ).fetchall():
+            self.conn.execute(
+                "UPDATE cliente SET nombre=?, direccion=?, poblacion=?, provincia=? "
+                "WHERE id=?",
+                (norm(nombre), norm(direccion), norm(poblacion), norm(provincia), id_))
+        for id_, marca, modelo, color in self.conn.execute(
+                "SELECT id, marca, modelo, color FROM vehiculo").fetchall():
+            self.conn.execute(
+                "UPDATE vehiculo SET marca=?, modelo=?, color=? WHERE id=?",
+                (marca.upper() if marca else marca, norm(modelo), norm(color), id_))
+        for id_, descripcion in self.conn.execute(
+                "SELECT id, descripcion FROM articulo").fetchall():
+            self.conn.execute("UPDATE articulo SET descripcion=? WHERE id=?",
+                              (norm(descripcion), id_))
+        self.conn.execute("INSERT INTO meta (clave, valor) VALUES (?, '1')", (clave,))
+        self.conn.commit()
 
     def _migrate(self) -> None:
         for tabla, columnas in _MIGRACIONES.items():
