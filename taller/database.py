@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -36,6 +36,7 @@ _MIGRACIONES = {
         ("verifactu_nif_productor", "TEXT NOT NULL DEFAULT ''"),
         ("verifactu_cert_path", "TEXT NOT NULL DEFAULT ''"),
         ("verifactu_cert_password", "TEXT NOT NULL DEFAULT ''"),
+        ("factura_email_automatico", "INTEGER NOT NULL DEFAULT 1"),
     ],
     "registro_facturacion": [
         ("csv", "TEXT NOT NULL DEFAULT ''"),
@@ -49,6 +50,7 @@ _MIGRACIONES = {
         ("validez_dias", "INTEGER"),
         ("factura_tipo", "TEXT NOT NULL DEFAULT 'completa'"),
         ("anticipo_pct", "REAL"),
+        ("factura_email_enviada", "TEXT"),
     ],
     "articulo": [
         ("canon_reciclaje", "REAL NOT NULL DEFAULT 0"),
@@ -102,7 +104,8 @@ CREATE TABLE IF NOT EXISTS empresa (
     verifactu_modo         TEXT NOT NULL DEFAULT 'desactivado',
     verifactu_nif_productor TEXT NOT NULL DEFAULT '',
     verifactu_cert_path    TEXT NOT NULL DEFAULT '',
-    verifactu_cert_password TEXT NOT NULL DEFAULT ''
+    verifactu_cert_password TEXT NOT NULL DEFAULT '',
+    factura_email_automatico INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS cliente (
@@ -165,6 +168,7 @@ CREATE TABLE IF NOT EXISTS documento (
     validez_dias     INTEGER,
     factura_tipo     TEXT NOT NULL DEFAULT 'completa',
     anticipo_pct     REAL,
+    factura_email_enviada TEXT,
     base          REAL NOT NULL DEFAULT 0,
     cuota_iva     REAL NOT NULL DEFAULT 0,
     total         REAL NOT NULL DEFAULT 0,

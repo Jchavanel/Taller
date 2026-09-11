@@ -291,6 +291,16 @@ Luego, con un documento seleccionado: **Enviar por correo…** genera el PDF, lo
 abre una ventana con el destinatario (rellenado con el email del cliente), asunto y
 mensaje, todo editable antes de enviar.
 
+**Factura al cliente automáticamente.** En *Datos de mi taller* (junto al enlace de
+reseñas) está la opción **«Enviar la factura al correo del cliente automáticamente al
+emitirla»** (activada por defecto). Con ella, al emitir una factura —o al guardarla y
+reimprimirla si aún no se había enviado— el programa manda **solo, sin preguntar**, un
+correo al cliente con el **PDF adjunto** y, al final del mensaje, la **encuesta de
+satisfacción** (el enlace de reseñas). Así el cliente tiene la factura en papel y en
+digital en el mismo momento. Cada factura se envía **una sola vez**; si no hay correo
+del cliente o el SMTP no está configurado, se avisa en la barra de estado y la factura
+se puede enviar a mano. Si prefieres controlar tú cada envío, desactiva la casilla.
+
 **Facturas del día a la gestoría.** En *Datos de mi taller* se indica el **Email de la
 gestoría**. En la pestaña **Calendario**, con un día seleccionado, el botón *Enviar
 facturas del día a la gestoría…* recopila **solo las facturas** de esa fecha, genera un

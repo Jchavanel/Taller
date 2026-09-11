@@ -118,7 +118,9 @@ class CorreoConfigDialog(QDialog):
         form.addRow("Asunto (plantilla)", self.asunto)
         form.addRow("Cuerpo (plantilla)", self.cuerpo)
         ayuda = QLabel("Marcadores disponibles: {tipo} {numero} {fecha} {cliente} "
-                       "{matricula} {total} {taller} {telefono}")
+                       "{matricula} {total} {taller} {telefono} {resenas_url}\n"
+                       "Si no pones {resenas_url}, en el correo de la factura se añade "
+                       "sola la invitación a dejar reseña (si hay enlace configurado).")
         ayuda.setWordWrap(True)
         ayuda.setStyleSheet("color:#555; font-size:11px;")
         form.addRow("", ayuda)
@@ -269,6 +271,61 @@ class _EnvioWorker(QObject):
             self.fallo.emit(str(e))
         else:
             self.terminado.emit()
+
+
+def enviar_factura_automaticamente(repo: Repository, documento_id: int, anfitrion,
+                                   al_terminar=None) -> str:
+    """Envía la factura al correo del cliente en segundo plano, sin preguntar.
+
+    Solo actúa si el ajuste está activo, la factura no se ha enviado ya, el cliente
+    tiene correo y el SMTP está configurado. Adjunta el PDF y añade la encuesta de
+    satisfacción (enlace de reseñas) al cuerpo.
+
+    ``anfitrion`` es un widget vivo al que se ancla el hilo. ``al_terminar(ok, texto)``
+    se llama al acabar el envío (``texto`` = correo del cliente si ok, o el error).
+
+    Devuelve ``"enviando"`` si se ha lanzado el envío, o el código de estado que
+    devuelva :func:`email_envio.preparar_correo_factura` si no procede.
+    """
+    en_curso = getattr(anfitrion, "_facturas_enviandose", None)
+    if en_curso is None:
+        en_curso = anfitrion._facturas_enviandose = set()
+    if documento_id in en_curso:
+        return "enviando"
+
+    prep = mail.preparar_correo_factura(repo, documento_id)
+    if isinstance(prep, str):
+        return prep
+    en_curso.add(documento_id)
+
+    hilo = QThread(anfitrion)
+    worker = _EnvioWorker(prep["config"], [prep["email"]], prep["asunto"],
+                          prep["cuerpo"], [prep["pdf"]])
+    worker.moveToThread(hilo)
+    hilo.started.connect(worker.run)
+
+    def _fin(ok: bool, err: str = "") -> None:
+        hilo.quit()
+        hilo.wait(3000)
+        if ok:
+            repo.marcar_factura_email_enviada(documento_id)
+        en_curso.discard(documento_id)
+        try:
+            anfitrion._hilos_envio_factura.remove(hilo)
+        except (AttributeError, ValueError):
+            pass
+        hilo.deleteLater()
+        if al_terminar:
+            al_terminar(ok, prep["email"] if ok else err)
+
+    worker.terminado.connect(lambda: _fin(True))
+    worker.fallo.connect(lambda m: _fin(False, m))
+    hilo._worker = worker  # evita que el recolector se lleve el worker
+    if not hasattr(anfitrion, "_hilos_envio_factura"):
+        anfitrion._hilos_envio_factura = []
+    anfitrion._hilos_envio_factura.append(hilo)
+    hilo.start()
+    return "enviando"
 
 
 class EnviarCorreoDialog(QDialog):

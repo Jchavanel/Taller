@@ -807,6 +807,73 @@ def test_factura_anticipo_con_descuento_general():
     assert round(a["total"] + f["total"], 2) == pre["total"]
 
 
+def test_factura_correo_automatico_con_encuesta():
+    from taller import email_envio as mail
+
+    db = Database()
+    repo = Repository(db)
+    try:
+        repo.save_empresa({
+            "nombre": "Taller Europa Jor", "nif": "B22438311",
+            "telefono": "928000000", "resenas_url": "https://g.page/r/ABC",
+            "factura_email_automatico": 1, "email_cuerpo": "", "email_asunto": "",
+            "smtp_host": "smtp.test", "smtp_usuario": "taller@test",
+            "smtp_remitente": "taller@test",
+        })
+        cid = repo.save_cliente({"nombre": "Cliente", "email": "cliente@correo.es"})
+        fid = repo.crear_documento(
+            {"tipo": domain.FACTURA, "cliente_id": cid},
+            [{"descripcion": "Rep", "cantidad": 1, "precio": 100, "iva_pct": 7}])
+
+        prep = mail.preparar_correo_factura(repo, fid)
+        assert isinstance(prep, dict)
+        assert prep["email"] == "cliente@correo.es"
+        assert "https://g.page/r/ABC" in prep["cuerpo"]      # encuesta incluida
+        assert prep["pdf"].is_file()
+
+        # una vez marcada como enviada, no se vuelve a preparar
+        repo.marcar_factura_email_enviada(fid)
+        assert repo.get_documento(fid)["factura_email_enviada"]
+        assert mail.preparar_correo_factura(repo, fid) == "ya_enviada"
+
+        # cliente sin correo
+        cid2 = repo.save_cliente({"nombre": "SinCorreo"})
+        fid2 = repo.crear_documento(
+            {"tipo": domain.FACTURA, "cliente_id": cid2},
+            [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}])
+        assert mail.preparar_correo_factura(repo, fid2) == "sin_correo_cliente"
+
+        # presupuesto: no es factura
+        pid = repo.crear_documento(
+            {"tipo": domain.PRESUPUESTO, "cliente_id": cid},
+            [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}])
+        assert mail.preparar_correo_factura(repo, pid) == "no_es_factura"
+
+        # si la plantilla ya trae {resenas_url}, no se añade el bloque extra
+        repo.save_empresa({"email_cuerpo": "Hola {cliente}. Reseña: {resenas_url}. Fin."})
+        fid3 = repo.crear_documento(
+            {"tipo": domain.FACTURA, "cliente_id": cid},
+            [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}])
+        cuerpo = mail.preparar_correo_factura(repo, fid3)["cuerpo"]
+        assert cuerpo.count("https://g.page/r/ABC") == 1 and "lleva un minuto" not in cuerpo
+
+        # desactivado
+        repo.save_empresa({"factura_email_automatico": 0})
+        assert mail.preparar_correo_factura(repo, fid3) == "desactivado"
+
+        # sin SMTP: no configurado
+        repo.save_empresa({"factura_email_automatico": 1, "smtp_host": "",
+                           "smtp_usuario": "", "smtp_remitente": ""})
+        fid4 = repo.crear_documento(
+            {"tipo": domain.FACTURA, "cliente_id": cid},
+            [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}])
+        assert mail.preparar_correo_factura(repo, fid4) == "sin_configurar"
+    finally:
+        repo.save_empresa({"factura_email_automatico": 1, "smtp_host": "",
+                           "smtp_usuario": "", "smtp_remitente": "",
+                           "email_cuerpo": "", "resenas_url": ""})
+
+
 def test_facturas_de_fecha_para_gestoria():
     db = Database()
     repo = Repository(db)

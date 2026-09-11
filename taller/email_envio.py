@@ -144,6 +144,14 @@ CUERPO_DEFECTO = (
     "Un saludo,\n{taller}\n{telefono}"
 )
 
+# Bloque de encuesta de satisfacción que se añade al final del correo de la factura
+# cuando el taller tiene configurado un enlace de reseñas y su plantilla no lo incluye.
+ENCUESTA_DEFECTO = (
+    "\n\n---\n"
+    "¿Qué tal ha ido todo? Su opinión nos ayuda mucho y solo lleva un minuto. "
+    "Puede valorarnos aquí:\n{resenas_url}"
+)
+
 
 def ofuscar(texto: str) -> str:
     if not texto or texto.startswith(_PREFIJO):
@@ -191,6 +199,13 @@ class ConfigCorreo:
         return bool(self.host and self.usuario and self.remitente)
 
 
+def _col(row, nombre: str, defecto: str = "") -> str:
+    try:
+        return row[nombre]
+    except (KeyError, IndexError, TypeError):
+        return defecto
+
+
 def contexto_documento(doc_row, cliente_row, vehiculo_row, empresa_row) -> dict:
     """Valores para sustituir en las plantillas de asunto y cuerpo."""
     return {
@@ -202,6 +217,57 @@ def contexto_documento(doc_row, cliente_row, vehiculo_row, empresa_row) -> dict:
         "total": domain.formato_moneda(doc_row["total"]),
         "taller": (empresa_row["nombre"] if empresa_row else "").strip(),
         "telefono": (empresa_row["telefono"] if empresa_row else "").strip(),
+        "resenas_url": (_col(empresa_row, "resenas_url") or "").strip(),
+    }
+
+
+def cuerpo_con_encuesta(plantilla_cuerpo: str, contexto: dict) -> str:
+    """Aplica la plantilla del cuerpo y, si hay enlace de reseñas y la plantilla no lo
+    incluye ya, añade el bloque de encuesta de satisfacción."""
+    plantilla = plantilla_cuerpo or CUERPO_DEFECTO
+    if (contexto.get("resenas_url") or "").strip() and "{resenas_url}" not in plantilla:
+        plantilla = plantilla + ENCUESTA_DEFECTO
+    return aplicar_plantilla(plantilla, contexto)
+
+
+def preparar_correo_factura(repo, documento_id: int):
+    """Decide si hay que enviar la factura al cliente y prepara el mensaje.
+
+    Devuelve un ``dict`` (``config``, ``email``, ``asunto``, ``cuerpo``, ``pdf``) listo
+    para :func:`enviar`, o un código de estado si no procede: ``"desactivado"``,
+    ``"no_es_factura"``, ``"ya_enviada"``, ``"sin_correo_cliente"``,
+    ``"sin_configurar"`` o ``"pdf:<detalle>"``.
+    """
+    from . import domain
+    from .pdf_export import generar_pdf
+
+    emp = repo.get_empresa()
+    if not _col(emp, "factura_email_automatico", 0):
+        return "desactivado"
+    doc = repo.get_documento(documento_id)
+    if not doc or doc["tipo"] != domain.FACTURA:
+        return "no_es_factura"
+    if _col(doc, "factura_email_enviada", ""):
+        return "ya_enviada"
+    cli = repo.get_cliente(doc["cliente_id"]) if doc["cliente_id"] else None
+    email = ((cli["email"] if cli else "") or "").strip()
+    if not email:
+        return "sin_correo_cliente"
+    cfg = ConfigCorreo.desde_empresa(emp)
+    if not cfg.configurado:
+        return "sin_configurar"
+    veh = repo.get_vehiculo(doc["vehiculo_id"]) if doc["vehiculo_id"] else None
+    try:
+        pdf = generar_pdf(doc, repo.get_lineas(documento_id), cli, veh, emp)
+    except Exception as e:  # noqa: BLE001
+        return f"pdf:{e}"
+    ctx = contexto_documento(doc, cli, veh, emp)
+    return {
+        "config": cfg,
+        "email": email,
+        "asunto": aplicar_plantilla(cfg.asunto, ctx),
+        "cuerpo": cuerpo_con_encuesta(cfg.cuerpo, ctx),
+        "pdf": Path(pdf),
     }
 
 

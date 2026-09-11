@@ -639,6 +639,14 @@ class EmpresaDialog(_BaseDialog):
         self.resenas_url.setPlaceholderText(
             "https://g.page/r/…  (en tu ficha de Google Empresa → «Pedir reseñas»)")
 
+        self.factura_email_auto = QCheckBox(
+            "Enviar la factura al correo del cliente automáticamente al emitirla")
+        self.factura_email_auto.setChecked(bool(row["factura_email_automatico"]))
+        self.factura_email_auto.setToolTip(
+            "Al emitir o reimprimir una factura, se envía sola por correo al cliente "
+            "(PDF adjunto + enlace de reseñas), sin preguntar. Necesita el correo "
+            "configurado en Archivo → Configurar correo y que el cliente tenga email.")
+
         self.wa_prefijo = QLineEdit(row["whatsapp_prefijo"] or "34")
         self.wa_prefijo.setFixedWidth(60)
         self.wa_prefijo.setToolTip("Prefijo de país sin '+'. España = 34.")
@@ -667,8 +675,10 @@ class EmpresaDialog(_BaseDialog):
         btn_wa_doc.clicked.connect(
             lambda: self.wa_plantilla_doc.setPlainText(whatsapp.plantilla_doc_por_defecto()))
 
-        self.form.addRow(QLabel("<b>WhatsApp de agradecimiento y reseñas</b>"))
+        self.form.addRow(QLabel("<b>Factura por correo, WhatsApp de agradecimiento y "
+                                "reseñas</b>"))
         self.form.addRow("Enlace de reseñas (Google)", self.resenas_url)
+        self.form.addRow("Factura por correo", self.factura_email_auto)
         self.form.addRow("WhatsApp", wa_top)
         self.form.addRow("Mensaje de agradecimiento", self.wa_plantilla)
         self.form.addRow("", btn_wa)
@@ -819,6 +829,7 @@ class EmpresaDialog(_BaseDialog):
             "cond_albaran": self.cond["cond_albaran"].toPlainText().strip(),
             "cond_factura": self.cond["cond_factura"].toPlainText().strip(),
             "resenas_url": self.resenas_url.text().strip(),
+            "factura_email_automatico": 1 if self.factura_email_auto.isChecked() else 0,
             "whatsapp_plantilla": self.wa_plantilla.toPlainText().strip(),
             "whatsapp_plantilla_doc": self.wa_plantilla_doc.toPlainText().strip(),
             "whatsapp_tras_factura": 1 if self.wa_tras_factura.isChecked() else 0,

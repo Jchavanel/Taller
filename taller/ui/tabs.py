@@ -896,6 +896,9 @@ class DocumentosTab(_TablaBase):
         dlg = DocumentoEditor(self.repo, self, documento_id=did)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refrescar_todo()
+            doc = self.repo.get_documento(did)
+            if doc and doc["tipo"] == domain.FACTURA:
+                self._auto_email_factura(did)
 
     def eliminar(self) -> None:
         did = self._id_seleccionado()
@@ -1206,10 +1209,43 @@ class DocumentosTab(_TablaBase):
         if not doc or doc["tipo"] != domain.FACTURA:
             return
         self._verifactu_enviar()
+        self._auto_email_factura(doc_id)
         emp = self.repo.get_empresa()
         if not emp["whatsapp_tras_factura"] or not (emp["resenas_url"] or "").strip():
             return
         self._enviar_whatsapp(doc, emp, preguntar=True)
+
+    def _auto_email_factura(self, doc_id: int) -> None:
+        """Envía la factura al correo del cliente automáticamente (si está activado)."""
+        from .correo import enviar_factura_automaticamente
+
+        def _barra(texto: str, ms: int = 7000) -> None:
+            try:
+                self.window().statusBar().showMessage(texto, ms)
+            except (AttributeError, RuntimeError):
+                pass
+
+        def _fin(ok: bool, texto: str) -> None:
+            if ok:
+                _barra(f"Factura enviada por correo a {texto}.")
+            else:
+                QMessageBox.warning(
+                    self, "Correo",
+                    f"No se pudo enviar la factura por correo:\n{texto}\n\n"
+                    "Puedes reintentarlo desde la factura con "
+                    "«Guardar y enviar por correo…».")
+
+        estado = enviar_factura_automaticamente(self.repo, doc_id, self, _fin)
+        if estado == "enviando":
+            _barra("Enviando la factura por correo al cliente…", 4000)
+        elif estado == "sin_correo_cliente":
+            _barra("La factura no se ha enviado por correo: el cliente no tiene "
+                   "dirección de correo guardada.")
+        elif estado == "sin_configurar":
+            _barra("La factura no se ha enviado por correo: configúralo en "
+                   "Archivo → Configurar correo electrónico.")
+        elif estado.startswith("pdf:"):
+            _barra(f"No se pudo preparar el PDF para el correo: {estado[4:]}")
 
     def _whatsapp_manual(self) -> None:
         did = self._id_seleccionado()

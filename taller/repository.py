@@ -54,7 +54,7 @@ class Repository:
             "smtp_host", "smtp_port", "smtp_seguridad", "smtp_usuario", "smtp_password",
             "smtp_remitente", "email_asunto", "email_cuerpo",
             "resenas_url", "whatsapp_plantilla", "whatsapp_tras_factura", "whatsapp_prefijo",
-            "email_gestoria", "whatsapp_plantilla_doc",
+            "email_gestoria", "whatsapp_plantilla_doc", "factura_email_automatico",
             "verifactu_modo", "verifactu_nif_productor",
             "verifactu_cert_path", "verifactu_cert_password",
         ]
@@ -862,6 +862,13 @@ class Repository:
         self.db.execute("UPDATE documento SET estado = 'facturado' WHERE id = ?", (pre["id"],))
         self.db.commit()
         return fid
+
+    def marcar_factura_email_enviada(self, documento_id: int) -> None:
+        """Deja constancia de que la factura ya se ha enviado por correo al cliente
+        (para no volver a enviarla automáticamente)."""
+        self.db.execute("UPDATE documento SET factura_email_enviada = ? WHERE id = ?",
+                        (_now(), documento_id))
+        self.db.commit()
 
     # ------------------------------------------------------------------- varios
     def estadisticas(self) -> dict:
