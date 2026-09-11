@@ -685,6 +685,28 @@ class EmpresaDialog(_BaseDialog):
         self.form.addRow("Mensaje al enviar la factura", self.wa_plantilla_doc)
         self.form.addRow("", btn_wa_doc)
 
+        # --- Portal de seguimiento del cliente (app + notificaciones push) ---
+        self.seg_activo = QCheckBox(
+            "Activar seguimiento online (el cliente ve el estado de su vehículo y "
+            "recibe un aviso cuando está listo para recoger)")
+        self.seg_activo.setChecked(bool(row["seguimiento_activo"]))
+        self.seg_url = QLineEdit(row["seguimiento_url"])
+        self.seg_url.setPlaceholderText("https://tu-portal-de-seguimiento.vercel.app")
+        self.seg_api_key = QLineEdit(row["seguimiento_api_key"])
+        self.seg_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.seg_api_key.setPlaceholderText("clave secreta configurada en el portal")
+        aviso_seg = QLabel(
+            "<i>La dirección y la clave las da el portal de seguimiento (proyecto web "
+            "aparte). En cada orden de trabajo aparecerá un botón para copiar el "
+            "enlace que se le da al cliente.</i>")
+        aviso_seg.setWordWrap(True)
+
+        self.form.addRow(QLabel("<b>Seguimiento online del cliente</b>"))
+        self.form.addRow("", self.seg_activo)
+        self.form.addRow("Dirección del portal", self.seg_url)
+        self.form.addRow("Clave de acceso (API key)", self.seg_api_key)
+        self.form.addRow("", aviso_seg)
+
         # --- VeriFactu (facturación antifraude) ---
         self.vf_modo = QComboBox()
         for etiqueta, clave in [
@@ -834,6 +856,9 @@ class EmpresaDialog(_BaseDialog):
             "whatsapp_plantilla_doc": self.wa_plantilla_doc.toPlainText().strip(),
             "whatsapp_tras_factura": 1 if self.wa_tras_factura.isChecked() else 0,
             "whatsapp_prefijo": self.wa_prefijo.text().strip() or "34",
+            "seguimiento_activo": 1 if self.seg_activo.isChecked() else 0,
+            "seguimiento_url": self.seg_url.text().strip(),
+            "seguimiento_api_key": self.seg_api_key.text().strip(),
             "verifactu_modo": self.vf_modo.currentData(),
             "verifactu_nif_productor": self.vf_nif.text().strip().upper(),
             "verifactu_cert_path": self.vf_cert.text().strip(),

@@ -57,6 +57,7 @@ class Repository:
             "email_gestoria", "whatsapp_plantilla_doc", "factura_email_automatico",
             "verifactu_modo", "verifactu_nif_productor",
             "verifactu_cert_path", "verifactu_cert_password",
+            "seguimiento_url", "seguimiento_api_key", "seguimiento_activo",
         ]
         actual = self.get_empresa()
         sets = ", ".join(f"{c} = :{c}" for c in campos)
@@ -534,6 +535,10 @@ class Repository:
         if tipo == domain.FACTURA:
             estado = domain.normalizar_estado_factura(estado)
         totales = self._totales_desde_dicts(lineas, cabecera.get("descuento_pct", 0.0))
+        token = ""
+        if tipo == domain.ORDEN:
+            from . import seguimiento_cliente
+            token = seguimiento_cliente.generar_token()
 
         # Reintenta si otra instancia ha cogido el mismo número entre el cálculo y el insert.
         secuencia = self._siguiente_secuencia(tipo, anio)
@@ -544,8 +549,8 @@ class Repository:
                     "INSERT INTO documento (tipo, numero, anio, secuencia, fecha, cliente_id, "
                     "vehiculo_id, kms, estado, descuento_pct, observaciones, forma_pago, "
                     "origen_id, fecha_entrada, entrega_prevista, validez_dias, "
-                    "base, cuota_iva, total, creado) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "base, cuota_iva, total, creado, seguimiento_token) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         tipo, numero, anio, secuencia, fecha,
                         cabecera.get("cliente_id"), cabecera.get("vehiculo_id"),
@@ -555,7 +560,7 @@ class Repository:
                         cabecera.get("forma_pago", ""), cabecera.get("origen_id"),
                         cabecera.get("fecha_entrada"), cabecera.get("entrega_prevista"),
                         cabecera.get("validez_dias"),
-                        totales.base, totales.cuota_iva, totales.total, _now(),
+                        totales.base, totales.cuota_iva, totales.total, _now(), token,
                     ),
                 )
                 break
@@ -572,6 +577,10 @@ class Repository:
         if tipo == domain.FACTURA:
             from . import verifactu
             verifactu.registrar_alta(self, doc_id)
+        if tipo == domain.ORDEN:
+            from . import seguimiento_cliente
+            seguimiento_cliente.sincronizar(
+                self, doc_id, notificar=estado in seguimiento_cliente.ESTADOS_LISTO)
         return doc_id
 
     def _sync_kms_vehiculo(self, vehiculo_id, kms) -> None:
@@ -626,6 +635,16 @@ class Repository:
         self._reemplazar_lineas(documento_id, lineas)
         self.db.commit()
         self._sync_kms_vehiculo(cabecera.get("vehiculo_id"), cabecera.get("kms"))
+        if actual and actual["tipo"] == domain.ORDEN:
+            from . import seguimiento_cliente
+            if not actual["seguimiento_token"]:
+                self.db.execute(
+                    "UPDATE documento SET seguimiento_token = ? WHERE id = ?",
+                    (seguimiento_cliente.generar_token(), documento_id))
+                self.db.commit()
+            notificar = (estado in seguimiento_cliente.ESTADOS_LISTO
+                        and actual["estado"] not in seguimiento_cliente.ESTADOS_LISTO)
+            seguimiento_cliente.sincronizar(self, documento_id, notificar=notificar)
 
     def _reemplazar_lineas(self, documento_id: int, lineas: list[dict]) -> None:
         self.db.execute("DELETE FROM linea WHERE documento_id = ?", (documento_id,))

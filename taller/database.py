@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -37,6 +37,9 @@ _MIGRACIONES = {
         ("verifactu_cert_path", "TEXT NOT NULL DEFAULT ''"),
         ("verifactu_cert_password", "TEXT NOT NULL DEFAULT ''"),
         ("factura_email_automatico", "INTEGER NOT NULL DEFAULT 1"),
+        ("seguimiento_url", "TEXT NOT NULL DEFAULT ''"),
+        ("seguimiento_api_key", "TEXT NOT NULL DEFAULT ''"),
+        ("seguimiento_activo", "INTEGER NOT NULL DEFAULT 0"),
     ],
     "registro_facturacion": [
         ("csv", "TEXT NOT NULL DEFAULT ''"),
@@ -51,6 +54,7 @@ _MIGRACIONES = {
         ("factura_tipo", "TEXT NOT NULL DEFAULT 'completa'"),
         ("anticipo_pct", "REAL"),
         ("factura_email_enviada", "TEXT"),
+        ("seguimiento_token", "TEXT NOT NULL DEFAULT ''"),
     ],
     "articulo": [
         ("canon_reciclaje", "REAL NOT NULL DEFAULT 0"),
