@@ -437,8 +437,9 @@ class DocumentoEditor(QDialog):
             item = QTableWidgetItem(str(val))
             if col >= 3:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            if es_canon:
-                # línea de canon: bloqueada por completo. El importe se cambia en el artículo.
+            if es_canon and col != 3:
+                # línea de canon: bloqueada salvo la cantidad. El importe por unidad se
+                # cambia en el artículo; la cantidad se explica más abajo.
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item.setForeground(Qt.GlobalColor.gray)
             self.tabla.setItem(fila, col, item)
@@ -448,6 +449,15 @@ class DocumentoEditor(QDialog):
             desc_it.setToolTip("Impuesto de reciclaje ligado al artículo. Para cambiar el "
                                "importe por unidad, edítalo en el artículo.")
             combo.setEnabled(False)
+            cant_it = self.tabla.item(fila, 3)
+            # "vinculada": mientras no se toque a mano, sigue la cantidad de la línea de
+            # arriba (litros vendidos). Si el cliente trae su propio aceite, edítala a
+            # mano: a partir de ahí deja de seguir a la línea de arriba.
+            cant_it.setData(Qt.ItemDataRole.UserRole, bool(datos.get("vinculado", False)))
+            cant_it.setToolTip(
+                "Cantidad del impuesto de reciclaje. Sigue en automático a la cantidad "
+                "de la línea de arriba; si el cliente trae su propio material, edítala "
+                "a mano (por ejemplo, los litros de aceite cambiados).")
 
         self.tabla.blockSignals(False)
         self._recalcular()
@@ -472,7 +482,7 @@ class DocumentoEditor(QDialog):
                 "tipo": domain.LINEA_MATERIAL, "codigo": "",
                 "descripcion": f"{texto} — {a['descripcion']}",
                 "cantidad": 1, "precio": canon, "descuento_pct": 0,
-                "iva_pct": a["iva_pct"], "es_canon": True,
+                "iva_pct": a["iva_pct"], "es_canon": True, "vinculado": True,
             })
 
     def _eliminar_linea(self) -> None:
@@ -495,6 +505,9 @@ class DocumentoEditor(QDialog):
                 self.tabla.blockSignals(True)
                 item.setText(t)
                 self.tabla.blockSignals(False)
+        # cantidad del canon editada a mano: deja de seguir a la línea de arriba
+        if item is not None and item.column() == 3 and self._es_fila_canon(item.row()):
+            item.setData(Qt.ItemDataRole.UserRole, False)
         self._recalcular()
 
     # ------------------------------------------------------------- cálculo
@@ -516,13 +529,15 @@ class DocumentoEditor(QDialog):
 
     def _recalcular(self) -> None:
         self.tabla.blockSignals(True)
-        # las líneas de canon toman la cantidad de la línea de la que dependen (la de arriba)
+        # las líneas de canon "vinculadas" toman la cantidad de la línea de la que
+        # dependen (la de arriba); si se han editado a mano, se dejan como están.
         for fila in range(1, self.tabla.rowCount()):
             if self._es_fila_canon(fila) and not self._es_fila_canon(fila - 1):
-                padre = _numero(self.tabla.item(fila - 1, 3))
                 it = self.tabla.item(fila, 3)
-                if it is not None and it.text() != _fmt(padre):
-                    it.setText(_fmt(padre))
+                if it is not None and it.data(Qt.ItemDataRole.UserRole):
+                    padre = _numero(self.tabla.item(fila - 1, 3))
+                    if it.text() != _fmt(padre):
+                        it.setText(_fmt(padre))
         calc = []
         for fila in range(self.tabla.rowCount()):
             lc = domain.LineaCalc(

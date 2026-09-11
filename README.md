@@ -243,9 +243,13 @@ python -m taller
    **Impuesto de reciclaje (canon).** Un artículo (típicamente el aceite) puede llevar un
    **canon por unidad** (p. ej. 0,06 €/litro, SIGAUS). Al marcarlo en la ficha del
    artículo, cada vez que lo añadas a un documento aparece en **dos líneas**: el producto
-   y, debajo, el canon calculado sobre esa misma cantidad. Si cambias la cantidad del
-   producto, la del canon se ajusta sola; si quitas el producto, el canon se quita
-   también. Ambas líneas salen en el PDF.
+   y, debajo, el canon. En esta segunda línea solo se puede editar la **cantidad**: por
+   defecto sigue sola a la cantidad del producto de arriba (si cambias los litros de
+   aceite, el canon se ajusta), pero en cuanto la editas a mano queda fijada a ese valor
+   y ya no vuelve a seguir a la línea de arriba. Así, si el cliente trae su propio aceite,
+   pones el precio del aceite a 0 € y escribes a mano los litros reales en la línea del
+   canon, que se sigue cobrando. Si quitas el producto, el canon se quita también. Ambas
+   líneas salen en el PDF.
 3. Pestaña **Clientes** → *Nuevo cliente*. En la misma ficha, con **Añadir vehículo**,
    le registras uno o varios coches sin salir del formulario. **Todos los campos del
    cliente son obligatorios** (menos *Notas*); no deja guardar si falta alguno.
