@@ -697,8 +697,9 @@ class EmpresaDialog(_BaseDialog):
         self.seg_api_key.setPlaceholderText("clave secreta configurada en el portal")
         aviso_seg = QLabel(
             "<i>La dirección y la clave las da el portal de seguimiento (proyecto web "
-            "aparte). En cada orden de trabajo aparecerá un botón para copiar el "
-            "enlace que se le da al cliente.</i>")
+            "aparte). El cliente entra con el enlace o QR general del tablero "
+            "(portal → /tablero) y busca su matrícula; no hace falta darle un enlace "
+            "por vehículo.</i>")
         aviso_seg.setWordWrap(True)
 
         self.form.addRow(QLabel("<b>Seguimiento online del cliente</b>"))

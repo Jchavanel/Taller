@@ -5,7 +5,6 @@ import datetime as _dt
 
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QComboBox,
     QDateEdit,
     QDialog,
@@ -300,17 +299,6 @@ class DocumentoEditor(QDialog):
             fila_wa.addWidget(b_wa_gr)
             fila_wa.addStretch(1)
             lay.addLayout(fila_wa)
-
-        if self.tipo == domain.ORDEN:
-            fila_seg = QHBoxLayout()
-            b_seg = QPushButton("Copiar enlace de seguimiento para el cliente")
-            b_seg.setToolTip(
-                "Guarda la orden y copia el enlace donde el cliente puede ver el "
-                "estado de su vehículo y recibir un aviso cuando esté listo.")
-            b_seg.clicked.connect(self._copiar_enlace_seguimiento)
-            fila_seg.addWidget(b_seg)
-            fila_seg.addStretch(1)
-            lay.addLayout(fila_seg)
 
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
@@ -734,29 +722,6 @@ class DocumentoEditor(QDialog):
                 self.repo, self, pdf=ruta, contexto=ctx,
                 destinatario=(cli["email"] if cli and cli["email"] else "")).exec()
         self._cerrar_tras_enviar()
-
-    def _copiar_enlace_seguimiento(self) -> None:
-        if not self._preparar_para_enviar():
-            return
-        from .. import seguimiento_cliente
-        emp = self.repo.get_empresa()
-        if not emp["seguimiento_activo"] or not emp["seguimiento_url"]:
-            QMessageBox.information(
-                self, "Seguimiento online",
-                "El seguimiento online no está activado. Puedes activarlo en "
-                "Archivo → Datos de mi taller.")
-            return
-        doc = self.repo.get_documento(self.documento_id)
-        enlace = seguimiento_cliente.url_seguimiento(emp, doc["seguimiento_token"])
-        if not enlace:
-            QMessageBox.warning(self, "Seguimiento online",
-                                "No se ha podido generar el enlace.")
-            return
-        QApplication.clipboard().setText(enlace)
-        QMessageBox.information(
-            self, "Seguimiento online",
-            f"Enlace copiado:\n\n{enlace}\n\nEnvíaselo al cliente (WhatsApp, SMS…) "
-            "para que pueda seguir el estado de su vehículo.")
 
     def _guardar_y_whatsapp(self, *, con_factura: bool) -> None:
         if not self._preparar_para_enviar():

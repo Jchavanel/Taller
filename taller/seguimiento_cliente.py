@@ -51,13 +51,6 @@ def generar_token() -> str:
     return secrets.token_urlsafe(16)
 
 
-def url_seguimiento(empresa_row, token: str) -> str:
-    """URL que se le entrega al cliente para ver el estado de su vehículo. Cadena
-    vacía si el portal no está configurado."""
-    base = (empresa_row["seguimiento_url"] or "").strip().rstrip("/")
-    return f"{base}/s/{token}" if base and token else ""
-
-
 def configurado(empresa_row) -> bool:
     return bool(
         empresa_row["seguimiento_activo"]
