@@ -468,6 +468,17 @@ class Repository:
             (documento_id,),
         )
 
+    def get_documento_por_token(self, token: str) -> sqlite3.Row | None:
+        return self.db.query_one(
+            "SELECT * FROM documento WHERE seguimiento_token = ?", (token,))
+
+    def aplicar_cambio_remoto(self, documento_id: int, nuevo_estado: str) -> None:
+        """Aplica un cambio de estado hecho desde el panel del mecánico (móvil). No
+        vuelve a sincronizar con el portal: ya es de ahí de donde viene el cambio."""
+        self.db.execute(
+            "UPDATE documento SET estado = ? WHERE id = ?", (nuevo_estado, documento_id))
+        self.db.commit()
+
     def get_lineas(self, documento_id: int) -> list[sqlite3.Row]:
         return self.db.query(
             "SELECT * FROM linea WHERE documento_id = ? ORDER BY orden, id",

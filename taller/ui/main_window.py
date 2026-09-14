@@ -73,6 +73,8 @@ class MainWindow(QMainWindow):
 
         from .actualizador import GestorActualizaciones
         self._gestor_actu = GestorActualizaciones(self)
+        from .seguimiento_poller import GestorSeguimiento
+        self._gestor_seguimiento = GestorSeguimiento(self)
 
         self.setStatusBar(QStatusBar())
         self._construir_menu()
@@ -85,6 +87,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1500, self._gestor_actu.comprobar_al_arrancar)
         QTimer.singleShot(300, self._avisar_licencia_arranque)
         QTimer.singleShot(3000, lambda: self._verifactu_enviar(silencioso=True))
+        QTimer.singleShot(5000, self._gestor_seguimiento.comprobar)
 
     # --------------------------------------------------------------- menú
     def _construir_menu(self) -> None:

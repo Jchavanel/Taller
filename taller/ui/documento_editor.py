@@ -36,6 +36,11 @@ _COLS = ["Tipo", "Código", "Descripción", "Cant.", "Precio", "Dto %", "IVA %",
 
 
 class DocumentoEditor(QDialog):
+    # Editores actualmente abiertos, por documento_id — para poder reflejar en
+    # caliente un cambio de estado hecho desde el panel del mecánico (móvil) mientras
+    # esa misma orden está abierta en el escritorio. Ver ui/seguimiento_poller.py.
+    _abiertos: dict[int, "DocumentoEditor"] = {}
+
     def __init__(self, repo: Repository, parent=None, *, tipo: str | None = None,
                  documento_id: int | None = None) -> None:
         super().__init__(parent)
@@ -45,10 +50,12 @@ class DocumentoEditor(QDialog):
         self._botones_edicion: list = []
         self._kms_manual = False       # el usuario ha tecleado los km a mano
         self._kms_programatico = False  # estamos rellenando los km desde el código
+        self.finished.connect(self._al_cerrar)
 
         if documento_id:
             doc = repo.get_documento(documento_id)
             self.tipo = doc["tipo"]
+            DocumentoEditor._abiertos[documento_id] = self
         else:
             self.tipo = tipo or domain.PRESUPUESTO
             doc = None
@@ -644,8 +651,30 @@ class DocumentoEditor(QDialog):
             self.repo.actualizar_documento(self.documento_id, cabecera, lineas)
         else:
             self.documento_id = self.repo.crear_documento(cabecera, lineas)
+            DocumentoEditor._abiertos[self.documento_id] = self
         self.saved = True
         return True
+
+    def _al_cerrar(self, *_a) -> None:
+        if self.documento_id and DocumentoEditor._abiertos.get(self.documento_id) is self:
+            del DocumentoEditor._abiertos[self.documento_id]
+
+    @classmethod
+    def abierto_para(cls, documento_id: int) -> "DocumentoEditor | None":
+        return cls._abiertos.get(documento_id)
+
+    def aplicar_estado_remoto(self, nuevo_estado: str) -> None:
+        """Refleja en caliente un cambio de estado hecho desde el panel del mecánico
+        (móvil) mientras esta misma orden está abierta en el escritorio."""
+        idx = self.estado.findData(nuevo_estado)
+        if idx < 0:
+            return
+        self.estado.setCurrentIndex(idx)
+        ventana = self.window()
+        if hasattr(ventana, "statusBar"):
+            ventana.statusBar().showMessage(
+                "Estado actualizado desde el panel del taller: "
+                + domain.ESTADO_NOMBRE.get(nuevo_estado, nuevo_estado), 8000)
 
     def _guardar_y_cerrar(self) -> None:
         if self._guardar():
