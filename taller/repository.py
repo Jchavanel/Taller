@@ -560,8 +560,8 @@ class Repository:
                     "INSERT INTO documento (tipo, numero, anio, secuencia, fecha, cliente_id, "
                     "vehiculo_id, kms, estado, descuento_pct, observaciones, forma_pago, "
                     "origen_id, fecha_entrada, entrega_prevista, validez_dias, "
-                    "base, cuota_iva, total, creado, seguimiento_token) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "base, cuota_iva, total, creado, seguimiento_token, problema) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         tipo, numero, anio, secuencia, fecha,
                         cabecera.get("cliente_id"), cabecera.get("vehiculo_id"),
@@ -572,6 +572,7 @@ class Repository:
                         cabecera.get("fecha_entrada"), cabecera.get("entrega_prevista"),
                         cabecera.get("validez_dias"),
                         totales.base, totales.cuota_iva, totales.total, _now(), token,
+                        cabecera.get("problema", ""),
                     ),
                 )
                 break
@@ -631,7 +632,7 @@ class Repository:
             "UPDATE documento SET fecha = ?, cliente_id = ?, vehiculo_id = ?, kms = ?, "
             "estado = ?, descuento_pct = ?, observaciones = ?, forma_pago = ?, "
             "fecha_entrada = ?, entrega_prevista = ?, validez_dias = ?, "
-            "base = ?, cuota_iva = ?, total = ? WHERE id = ?",
+            "base = ?, cuota_iva = ?, total = ?, problema = ? WHERE id = ?",
             (
                 fecha,
                 cabecera.get("cliente_id"), cabecera.get("vehiculo_id"),
@@ -640,7 +641,8 @@ class Repository:
                 cabecera.get("forma_pago", ""),
                 cabecera.get("fecha_entrada"), cabecera.get("entrega_prevista"),
                 cabecera.get("validez_dias"),
-                totales.base, totales.cuota_iva, totales.total, documento_id,
+                totales.base, totales.cuota_iva, totales.total,
+                cabecera.get("problema", ""), documento_id,
             ),
         )
         self._reemplazar_lineas(documento_id, lineas)

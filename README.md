@@ -267,6 +267,13 @@ python -m taller
 4. Pestaña **Documentos** → *Nuevo presupuesto*. Añade líneas desde el catálogo
    («Añadir artículo») o escríbelas a mano («Añadir línea libre»). Los totales y el
    desglose de IVA se calculan solos.
+
+   La **orden de trabajo** tiene además un cuadro **«Problema del vehículo / motivo
+   de la visita»**, para apuntar lo que cuenta el cliente o lo que hay que revisar,
+   de modo que el mecánico sepa qué solventar aunque todavía no se sepan las piezas
+   o la mano de obra. Por eso una orden se puede guardar **solo con el problema**,
+   sin ninguna línea (a diferencia de los demás documentos, que sí exigen al menos
+   una línea). El problema sale destacado en el PDF, antes de la tabla de trabajos.
 6. Con el documento seleccionado:
    - **Imprimir…**: abre una **vista previa** desde la que se elige impresora, se ajusta
      el zoom/páginas y se imprime directamente (o «Imprimir a PDF»).

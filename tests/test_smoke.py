@@ -717,6 +717,35 @@ def test_normalizar_texto_datos_existentes():
     assert repo.get_cliente(cid)["nombre"] == "mario"
 
 
+def test_orden_problema_sin_lineas():
+    db = Database()
+    repo = Repository(db)
+    cid = repo.save_cliente({"nombre": "Averías SL"})
+
+    # se puede guardar una orden con el problema del vehículo y SIN líneas todavía
+    oid = repo.crear_documento(
+        {"tipo": domain.ORDEN, "cliente_id": cid,
+         "problema": "Ruido metálico al frenar por delante"}, [])
+    ot = repo.get_documento(oid)
+    assert ot["problema"] == "Ruido metálico al frenar por delante"
+    assert ot["total"] == 0.0
+    assert repo.get_lineas(oid) == []
+
+    # se completa más tarde con las líneas de la reparación, sin perder el problema
+    repo.actualizar_documento(
+        oid, {"tipo": domain.ORDEN, "cliente_id": cid,
+             "problema": "Ruido metálico al frenar por delante", "estado": "en curso"},
+        [{"descripcion": "Pastillas de freno", "cantidad": 1, "precio": 40, "iva_pct": 7}])
+    ot2 = repo.get_documento(oid)
+    assert ot2["problema"] == "Ruido metálico al frenar por delante"
+    assert ot2["total"] > 0
+
+    # un presupuesto no lleva este campo (queda vacío)
+    pid = repo.crear_documento({"tipo": domain.PRESUPUESTO, "cliente_id": cid},
+                               [{"descripcion": "x", "cantidad": 1, "precio": 10, "iva_pct": 7}])
+    assert repo.get_documento(pid)["problema"] == ""
+
+
 def test_kms_ida_y_vuelta_vehiculo():
     db = Database()
     repo = Repository(db)

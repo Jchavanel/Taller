@@ -73,6 +73,8 @@ def _styles() -> dict:
         "td": ParagraphStyle("td", parent=N, fontSize=8, leading=10),
         "tdr": ParagraphStyle("tdr", parent=N, fontSize=8, leading=10, alignment=2),
         "cond": ParagraphStyle("cond", parent=N, fontSize=7.3, leading=9.5, textColor=_LABEL),
+        "problema": ParagraphStyle("prob", parent=N, fontSize=9.5, leading=13,
+                                   fontName="Helvetica-Bold"),
         "fp": ParagraphStyle("fp", parent=N, fontSize=7.8, leading=11.5,
                              textColor=colors.white),
         "fp_row": ParagraphStyle("fpr", parent=N, fontSize=8.5, leading=11),
@@ -349,6 +351,21 @@ def generar_pdf(doc_row, lineas_rows, cliente_row, vehiculo_row, empresa_row,
         [45.5 * mm, 45.5 * mm, 45.5 * mm, 45.5 * mm], [9.5 * mm, 9.5 * mm], st,
     ))
     elems.append(Spacer(1, gap))
+
+    # ---- problema / motivo de la visita (solo en la orden de trabajo) -----
+    problema = (doc_row["problema"] or "").strip() if tipo == domain.ORDEN else ""
+    if problema:
+        elems.append(_barra("Problema del vehículo", ancho, st))
+        caja_prob = Table([[_P(problema, st["problema"], multilinea=True)]],
+                          colWidths=[ancho])
+        caja_prob.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.6, _ROJO),
+            ("BACKGROUND", (0, 0), (-1, -1), _ROJO_BG),
+            ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        elems.append(caja_prob)
+        elems.append(Spacer(1, gap))
 
     # ---- líneas ----------------------------------------------
     elems.append(_barra("Trabajos, piezas y materiales", ancho, st))

@@ -89,6 +89,8 @@ class DocumentoEditor(QDialog):
             aviso.setWordWrap(True)
             root.addWidget(aviso)
         root.addWidget(self._build_cabecera(doc))
+        if self.tipo == domain.ORDEN:
+            root.addWidget(self._build_problema())
         root.addWidget(self._build_tabla(), stretch=1)
         root.addLayout(self._build_totales())
         root.addWidget(self._build_botones())
@@ -110,6 +112,8 @@ class DocumentoEditor(QDialog):
                   self.fecha, self.fecha_entrada, self.entrega_prevista):
             w.setEnabled(False)
         self.observaciones.setReadOnly(True)
+        if self.tipo == domain.ORDEN:
+            self.problema.setReadOnly(True)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         for b in self._botones_edicion:
             b.setEnabled(False)
@@ -212,6 +216,19 @@ class DocumentoEditor(QDialog):
         self.lbl_validez.setVisible(solo_presupuesto)
         self.validez.setVisible(solo_presupuesto)
 
+        return box
+
+    # ------------------------------------------------------ problema (orden)
+    def _build_problema(self) -> QGroupBox:
+        box = QGroupBox("Problema del vehículo / motivo de la visita")
+        lay = QVBoxLayout(box)
+        from .corrector import CorrectorTextEdit
+        self.problema = CorrectorTextEdit()
+        self.problema.setPlaceholderText(
+            "Qué cuenta el cliente y qué hay que revisar, para que el mecánico sepa qué "
+            "solventar (p. ej. «Ruido metálico al frenar por delante»)…")
+        self.problema.setFixedHeight(60)
+        lay.addWidget(self.problema)
         return box
 
     # -------------------------------------------------------------- tabla
@@ -388,6 +405,8 @@ class DocumentoEditor(QDialog):
         self.forma_pago.setCurrentText(doc["forma_pago"])
         self.descuento.setValue(doc["descuento_pct"])
         self.observaciones.setPlainText(doc["observaciones"])
+        if self.tipo == domain.ORDEN:
+            self.problema.setPlainText(doc["problema"])
         _set_date_opcional(self.fecha_entrada, doc["fecha_entrada"])
         _set_date_opcional(self.entrega_prevista, doc["entrega_prevista"])
         self.validez.setValue(doc["validez_dias"] or 0)
@@ -597,7 +616,7 @@ class DocumentoEditor(QDialog):
                 self.vehiculo.setCurrentIndex(idx)
 
     def _cabecera(self) -> dict:
-        return {
+        cabecera = {
             "tipo": self.tipo,
             "fecha": self.fecha.date().toString("yyyy-MM-dd"),
             "cliente_id": self.cliente.currentData(),
@@ -611,15 +630,21 @@ class DocumentoEditor(QDialog):
             "entrega_prevista": _get_date_opcional(self.entrega_prevista),
             "validez_dias": self.validez.value() or None,
         }
+        if self.tipo == domain.ORDEN:
+            cabecera["problema"] = self.problema.toPlainText().strip()
+        return cabecera
 
     def _guardar(self) -> bool:
         if self.solo_lectura:
             return False
         lineas = self._leer_lineas()
         lineas = [ln for ln in lineas if ln["descripcion"] or ln["precio"]]
-        if not lineas:
-            QMessageBox.warning(self, "Documento vacío",
-                                "Añada al menos una línea con descripción o importe.")
+        problema = self.problema.toPlainText().strip() if self.tipo == domain.ORDEN else ""
+        if not lineas and not problema:
+            mensaje = ("Añada el problema del vehículo o al menos una línea con "
+                      "descripción o importe." if self.tipo == domain.ORDEN
+                      else "Añada al menos una línea con descripción o importe.")
+            QMessageBox.warning(self, "Documento vacío", mensaje)
             return False
         if self.tipo == domain.FACTURA and not self.cliente.currentData():
             QMessageBox.warning(self, "Cliente obligatorio",

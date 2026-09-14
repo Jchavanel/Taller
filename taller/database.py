@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .paths import db_path
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 # Columnas añadidas después de la v1. Se aplican con ALTER TABLE sobre bases de datos
 # antiguas (los CREATE TABLE IF NOT EXISTS no modifican tablas ya existentes).
@@ -55,6 +55,7 @@ _MIGRACIONES = {
         ("anticipo_pct", "REAL"),
         ("factura_email_enviada", "TEXT"),
         ("seguimiento_token", "TEXT NOT NULL DEFAULT ''"),
+        ("problema", "TEXT NOT NULL DEFAULT ''"),
     ],
     "articulo": [
         ("canon_reciclaje", "REAL NOT NULL DEFAULT 0"),
