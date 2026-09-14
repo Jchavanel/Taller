@@ -66,11 +66,16 @@ def configurado(empresa_row) -> bool:
     )
 
 
-def sincronizar(repo, documento_id: int, *, notificar: bool = False) -> None:
+def sincronizar(repo, documento_id: int, *, notificar: bool = False,
+                estado_override: str | None = None) -> None:
     """Envía el estado actual de una orden al portal de seguimiento, en segundo plano.
 
     ``notificar=True`` además pide al portal que avise por notificación push al
     cliente (se usa cuando la orden acaba de pasar a un estado de ``ESTADOS_LISTO``).
+    ``estado_override`` fuerza el estado que ve el cliente en vez de traducir el
+    estado interno de la orden (se usa al borrar una orden: en ese instante el
+    documento todavía existe para poder leer matrícula/cliente, pero el estado que
+    debe ver el cliente es "cancelado", no el que tuviera la orden).
     """
     empresa = repo.get_empresa()
     if not configurado(empresa):
@@ -86,7 +91,7 @@ def sincronizar(repo, documento_id: int, *, notificar: bool = False) -> None:
         "marca": (vehiculo["marca"] if vehiculo else "") or "",
         "modelo": (vehiculo["modelo"] if vehiculo else "") or "",
         "cliente_nombre": (cliente["nombre"] if cliente else "") or "",
-        "estado": ESTADO_CLIENTE.get(doc["estado"], "en_reparacion"),
+        "estado": estado_override or ESTADO_CLIENTE.get(doc["estado"], "en_reparacion"),
         "entrega_prevista": doc["entrega_prevista"] or None,
         "taller_nombre": (empresa["nombre"] or "").strip(),
         "notificar": bool(notificar),

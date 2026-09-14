@@ -1,4 +1,4 @@
 """Taller de Coches - gestión local de presupuestos, órdenes, albaranes y facturas."""
 
-__version__ = "1.29.0"
+__version__ = "1.30.0"
 APP_NAME = "Taller de Coches"

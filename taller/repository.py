@@ -695,6 +695,12 @@ class Repository:
             raise ValueError(
                 "Una factura no se puede eliminar. Anúlala en su lugar: se conserva "
                 "el número y queda registrada como anulada.")
+        if doc["tipo"] == domain.ORDEN and doc["seguimiento_token"]:
+            # el documento va a desaparecer: avisamos al portal ANTES de borrarlo
+            # (sincronizar necesita leerlo) para que el cliente no se quede viendo
+            # un estado congelado para siempre.
+            from . import seguimiento_cliente
+            seguimiento_cliente.sincronizar(self, documento_id, estado_override="cancelado")
         # quita las referencias de otros documentos a este (evita fallo de clave foránea)
         self.db.execute(
             "UPDATE documento SET origen_id = NULL WHERE origen_id = ?", (documento_id,)
@@ -723,6 +729,9 @@ class Repository:
         if doc["tipo"] == domain.FACTURA:
             from . import verifactu
             verifactu.registrar_anulacion(self, documento_id)
+        if doc["tipo"] == domain.ORDEN:
+            from . import seguimiento_cliente
+            seguimiento_cliente.sincronizar(self, documento_id)
 
     def documento_bloqueado(self, doc_row) -> bool:
         """True si el documento no debe editarse (factura anulada o cobrada)."""
@@ -775,6 +784,9 @@ class Repository:
                 "UPDATE documento SET estado = ? WHERE id = ?", (nuevo_estado, documento_id)
             )
             self.db.commit()
+            if doc["tipo"] == domain.ORDEN:
+                from . import seguimiento_cliente
+                seguimiento_cliente.sincronizar(self, documento_id)
         return nuevo_id
 
     # ------------------------------------------------------- facturas de anticipo
