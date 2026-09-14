@@ -479,6 +479,55 @@ class Repository:
             "UPDATE documento SET estado = ? WHERE id = ?", (nuevo_estado, documento_id))
         self.db.commit()
 
+    def crear_orden_desde_movil(self, datos: dict) -> int:
+        """Da de alta una orden de trabajo a partir de un alta rápida hecha desde el
+        panel del mecánico (móvil): busca o crea el cliente y el vehículo, y crea la
+        orden con el problema anotado (domain.py / v1.31) y sin líneas — se completan
+        luego con calma en el escritorio. ``datos``: cliente_nombre, cliente_telefono,
+        matricula, marca, modelo, problema, km."""
+        matricula = (datos.get("matricula") or "").strip().upper()
+        cliente_id = None
+        vehiculo_id = None
+
+        if matricula:
+            veh = self.db.query_one(
+                "SELECT * FROM vehiculo WHERE UPPER(matricula) = ?", (matricula,))
+            if veh is not None:
+                vehiculo_id = veh["id"]
+                cliente_id = veh["cliente_id"]
+
+        if cliente_id is None:
+            telefono = (datos.get("cliente_telefono") or "").strip()
+            existente = None
+            if telefono:
+                existente = self.db.query_one(
+                    "SELECT * FROM cliente WHERE telefono = ? AND telefono != ''", (telefono,))
+            if existente is not None:
+                cliente_id = existente["id"]
+            else:
+                nombre = domain.titular((datos.get("cliente_nombre") or "").strip()) \
+                    or "Cliente sin nombre"
+                cliente_id = self.save_cliente({"nombre": nombre, "telefono": telefono})
+
+        if vehiculo_id is None and matricula:
+            vehiculo_id = self.save_vehiculo({
+                "cliente_id": cliente_id,
+                "matricula": matricula,
+                "marca": (datos.get("marca") or "").strip().upper(),
+                "modelo": domain.titular((datos.get("modelo") or "").strip()),
+                "kms": datos.get("km"),
+            })
+
+        cabecera = {
+            "tipo": domain.ORDEN,
+            "cliente_id": cliente_id,
+            "vehiculo_id": vehiculo_id,
+            "kms": datos.get("km"),
+            "estado": "abierto",
+            "problema": (datos.get("problema") or "").strip(),
+        }
+        return self.crear_documento(cabecera, [])
+
     def get_lineas(self, documento_id: int) -> list[sqlite3.Row]:
         return self.db.query(
             "SELECT * FROM linea WHERE documento_id = ? ORDER BY orden, id",

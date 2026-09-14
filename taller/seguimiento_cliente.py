@@ -108,39 +108,56 @@ def _enviar(url: str, api_key: str, payload: dict) -> None:
 
 
 # ------------------------------------------------------------- cambios remotos
-# El mecánico también puede cambiar el estado de un vehículo desde el panel del móvil
-# (portal → Ajustes del taller no hace falta tocarlos: el panel usa su propia
-# contraseña). La app de escritorio pregunta periódicamente si hay cambios pendientes
-# y los aplica a la orden de trabajo local; ver ui/seguimiento_poller.py.
+# El mecánico también puede cambiar el estado de un vehículo, o dar de alta una orden
+# nueva, desde el panel del móvil (el panel usa su propia contraseña, no toca los
+# ajustes del taller). La app de escritorio pregunta periódicamente si hay algo
+# pendiente y lo aplica en local; ver ui/seguimiento_poller.py.
 
-def consultar_cambios(url: str, api_key: str) -> list[dict]:
-    """Cambios pendientes hechos desde el panel del móvil. Llamada de red pura (sin
-    tocar la base de datos): pensada para ejecutarse en un hilo aparte. Devuelve
-    ``[]`` si falla, nunca lanza."""
+def _consultar(url: str, api_key: str, ruta: str, campo: str) -> list[dict]:
+    """Llamada de red pura (sin tocar la base de datos): pensada para ejecutarse en
+    un hilo aparte. Devuelve ``[]`` si falla, nunca lanza."""
     req = urllib.request.Request(
-        url.rstrip("/") + "/api/cambios", headers={"x-api-key": api_key})
+        url.rstrip("/") + ruta, headers={"x-api-key": api_key})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return list(data.get("cambios") or [])
+        return list(data.get(campo) or [])
     except (urllib.error.URLError, OSError, TimeoutError, ValueError) as e:
-        logger.warning("No se pudieron consultar los cambios del panel del taller: %s", e)
+        logger.warning("No se pudo consultar %s: %s", ruta, e)
         return []
 
 
-def confirmar_cambios(url: str, api_key: str, ids: list) -> None:
-    """Avisa al portal de que estos cambios ya se han aplicado en local, para que no
-    se vuelvan a entregar. Mejor esfuerzo: si falla, se reintenta solo (se volverán a
-    recibir y aplicar en la siguiente consulta, sin efecto negativo)."""
+def _confirmar(url: str, api_key: str, ruta: str, ids: list) -> None:
+    """Mejor esfuerzo: si falla, se reintenta solo (se volverán a recibir y aplicar
+    en la siguiente consulta, sin efecto negativo)."""
     if not ids:
         return
     body = json.dumps({"ids": ids}).encode("utf-8")
     req = urllib.request.Request(
-        url.rstrip("/") + "/api/cambios/confirmar", data=body, method="POST",
+        url.rstrip("/") + ruta, data=body, method="POST",
         headers={"Content-Type": "application/json", "x-api-key": api_key},
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             resp.read()
     except (urllib.error.URLError, OSError, TimeoutError) as e:
-        logger.warning("No se pudo confirmar la aplicación de cambios: %s", e)
+        logger.warning("No se pudo confirmar %s: %s", ruta, e)
+
+
+def consultar_cambios(url: str, api_key: str) -> list[dict]:
+    """Cambios de estado pendientes hechos desde el panel del móvil."""
+    return _consultar(url, api_key, "/api/cambios", "cambios")
+
+
+def confirmar_cambios(url: str, api_key: str, ids: list) -> None:
+    return _confirmar(url, api_key, "/api/cambios/confirmar", ids)
+
+
+def consultar_ordenes_nuevas(url: str, api_key: str) -> list[dict]:
+    """Altas rápidas de orden de trabajo pendientes, hechas desde el panel del móvil
+    (matrícula, cliente, qué le pasa — sin líneas ni precios)."""
+    return _consultar(url, api_key, "/api/ordenes-nuevas", "ordenes")
+
+
+def confirmar_ordenes_nuevas(url: str, api_key: str, ids: list) -> None:
+    return _confirmar(url, api_key, "/api/ordenes-nuevas/confirmar", ids)
